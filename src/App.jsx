@@ -907,6 +907,7 @@ function Capture({ onSaved, activeTrade, accounts = [], playbooks = [], onCancel
   const [trade, setTrade] = useState(activeTrade || emptyTrade());
   const [screenshots, setScreenshots] = useState(activeTrade?.screenshots || []);
   const [answers, setAnswers] = useState(activeTrade?.answers || {});
+  const [selectedScreenshotId, setSelectedScreenshotId] = useState(activeTrade?.primaryScreenshotId || activeTrade?.screenshots?.[0]?.id || '');
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
   const [phase, setPhase] = useState('ticket');
@@ -916,14 +917,30 @@ function Capture({ onSaved, activeTrade, accounts = [], playbooks = [], onCancel
   const errors = validateTrade(trade, screenshots);
   const phaseIndex = Math.max(0, capturePhases.findIndex((item) => item.id === phase));
   const isFinalPhase = phase === 'review';
+  const selectedScreenshot = useMemo(() => (
+    screenshots.find((shot) => shot.id === selectedScreenshotId)
+    || primaryShot({ ...trade, screenshots }, true)
+    || null
+  ), [screenshots, selectedScreenshotId, trade.primaryScreenshotId]);
 
   useEffect(() => {
     setTrade(activeTrade || emptyTrade());
     setScreenshots(activeTrade?.screenshots || []);
+    setSelectedScreenshotId(activeTrade?.primaryScreenshotId || activeTrade?.screenshots?.[0]?.id || '');
     setAnswers(activeTrade?.answers || {});
     setMessage('');
     setPhase('ticket');
   }, [activeTrade]);
+
+  useEffect(() => {
+    if (!screenshots.length) {
+      if (selectedScreenshotId) setSelectedScreenshotId('');
+      return;
+    }
+    if (!selectedScreenshotId || !screenshots.some((shot) => shot.id === selectedScreenshotId)) {
+      setSelectedScreenshotId(primaryShot({ ...trade, screenshots }, true)?.id || screenshots[0]?.id || '');
+    }
+  }, [screenshots, selectedScreenshotId, trade.primaryScreenshotId]);
 
   function update(key, value) {
     setTrade((current) => ({ ...current, [key]: value }));
@@ -975,6 +992,7 @@ function Capture({ onSaved, activeTrade, accounts = [], playbooks = [], onCancel
       };
     }));
     setScreenshots((current) => current.concat(next));
+    if (next[0]?.id) setSelectedScreenshotId(next[0].id);
   }
 
   async function filesChanged(fileList) {
@@ -1137,10 +1155,49 @@ function Capture({ onSaved, activeTrade, accounts = [], playbooks = [], onCancel
             <span className="eyebrow">Screenshots</span>
             <strong>Chart images</strong>
           </div>
+          <div className={`capture-shot-preview ${selectedScreenshot ? '' : 'empty'}`}>
+            {selectedScreenshot ? (
+              <>
+                <ScreenshotImage
+                  shot={selectedScreenshot}
+                  src={shotSrc(selectedScreenshot)}
+                  alt={selectedScreenshot.name || 'Selected trade screenshot'}
+                  fallbackLabel={screenshotFallbackLabel(selectedScreenshot)}
+                  iconSize={34}
+                />
+                <div className="capture-shot-preview-meta">
+                  <div>
+                    <span className="eyebrow">Preview</span>
+                    <strong>{selectedScreenshot.name || 'Selected screenshot'}</strong>
+                  </div>
+                  <span>{selectedScreenshot.kind || 'execution'} · {formatBytes(selectedScreenshot.size)}</span>
+                </div>
+              </>
+            ) : (
+              <button className="phase-dropzone" type="button" onClick={() => fileRef.current?.click()}>
+                <div>
+                  <h3>Add chart screenshots</h3>
+                  <p>Drop in the trade screenshots you want to review.</p>
+                </div>
+                <UploadCloud size={22} />
+              </button>
+            )}
+          </div>
           <button className="secondary" type="button" onClick={() => fileRef.current?.click()}><UploadCloud size={17} /> Add Screenshots</button>
           <div className="shot-grid">
             {screenshots.map((shot) => (
-              <div className="shot" key={shot.id}>
+              <div
+                className={`shot ${selectedScreenshot?.id === shot.id ? 'active' : ''}`}
+                key={shot.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => setSelectedScreenshotId(shot.id)}
+                onKeyDown={(event) => {
+                  if (event.key !== 'Enter' && event.key !== ' ') return;
+                  event.preventDefault();
+                  setSelectedScreenshotId(shot.id);
+                }}
+              >
                 <ScreenshotImage
                   shot={shot}
                   src={shotSrc(shot)}
@@ -1148,14 +1205,48 @@ function Capture({ onSaved, activeTrade, accounts = [], playbooks = [], onCancel
                   fallbackLabel={screenshotFallbackLabel(shot)}
                 />
                 <div className="shot-controls">
-                  <select value={shot.kind || 'execution'} onChange={(event) => setScreenshots((current) => current.map((item) => item.id === shot.id ? { ...item, kind: event.target.value } : item))}>
+                  <select value={shot.kind || 'execution'} onClick={(event) => event.stopPropagation()} onChange={(event) => setScreenshots((current) => current.map((item) => item.id === shot.id ? { ...item, kind: event.target.value } : item))}>
                     <option value="execution">Execution</option>
                     <option value="context">Context</option>
                     <option value="news">News</option>
                     <option value="other">Other</option>
                   </select>
-                  <button type="button" title="Set primary screenshot" onClick={() => update('primaryScreenshotId', shot.id)}>{trade.primaryScreenshotId === shot.id ? <CheckCircle2 size={14} /> : <ImageIcon size={14} />}</button>
-                  <button type="button" onClick={() => removeScreenshot(shot.id)}><Trash2 size={14} /></button>
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    title="Set primary screenshot"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      update('primaryScreenshotId', shot.id);
+                      setSelectedScreenshotId(shot.id);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key !== 'Enter' && event.key !== ' ') return;
+                      event.preventDefault();
+                      event.stopPropagation();
+                      update('primaryScreenshotId', shot.id);
+                      setSelectedScreenshotId(shot.id);
+                    }}
+                  >
+                    {trade.primaryScreenshotId === shot.id ? <CheckCircle2 size={14} /> : <ImageIcon size={14} />}
+                  </span>
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    title="Remove screenshot"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      removeScreenshot(shot.id);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key !== 'Enter' && event.key !== ' ') return;
+                      event.preventDefault();
+                      event.stopPropagation();
+                      removeScreenshot(shot.id);
+                    }}
+                  >
+                    <Trash2 size={14} />
+                  </span>
                 </div>
               </div>
             ))}

@@ -3584,6 +3584,114 @@ textarea {
   padding: var(--space-4);
 }
 
+.capture-shot-preview {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(185, 196, 214, 0.14);
+  border-radius: var(--radius);
+  background: #05070b;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+.capture-shot-preview > img,
+.capture-shot-preview > .screenshot-fallback {
+  width: 100%;
+  height: clamp(320px, 46vh, 560px);
+  display: grid;
+  place-items: center;
+  object-fit: contain;
+  background: #05070b;
+}
+
+.capture-shot-preview > .screenshot-fallback {
+  border: 0;
+  color: var(--muted);
+}
+
+.capture-shot-preview.empty {
+  padding: 0;
+  background: transparent;
+}
+
+.capture-shot-preview.empty .phase-dropzone {
+  width: 100%;
+}
+
+.capture-shot-preview-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border-top: 1px solid rgba(185, 196, 214, 0.1);
+  color: var(--muted);
+}
+
+.capture-shot-preview-meta strong {
+  display: block;
+  max-width: min(620px, 62vw);
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.screenshot-compose .shot-grid {
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+}
+
+.screenshot-compose .shot {
+  width: 100%;
+  min-height: 132px;
+  padding: 0;
+  border: 1px solid rgba(185, 196, 214, 0.16);
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.screenshot-compose .shot:hover {
+  transform: translateY(-1px);
+  border-color: rgba(216, 199, 154, 0.42);
+}
+
+.screenshot-compose .shot:focus-visible {
+  outline: 2px solid rgba(216, 199, 154, 0.78);
+  outline-offset: 3px;
+}
+
+.screenshot-compose .shot.active {
+  border-color: rgba(216, 199, 154, 0.72);
+  box-shadow: 0 0 0 1px rgba(216, 199, 154, 0.22), 0 18px 44px rgba(0, 0, 0, 0.22);
+}
+
+.screenshot-compose .shot img,
+.screenshot-compose .shot .screenshot-fallback {
+  height: 132px;
+}
+
+.screenshot-compose .shot-controls span[role='button'] {
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.72);
+  color: white;
+}
+
+.screenshot-compose .shot-controls span[role='button']:hover {
+  background: rgba(216, 199, 154, 0.24);
+}
+
+.screenshot-compose .shot-controls span[role='button']:focus-visible {
+  outline: 2px solid rgba(216, 199, 154, 0.78);
+  outline-offset: 2px;
+}
+
 .trade-card p,
 .edge-card p,
 .quality-item small,
