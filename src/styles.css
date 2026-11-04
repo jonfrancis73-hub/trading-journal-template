@@ -2,31 +2,31 @@
   color-scheme: dark;
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", system-ui, sans-serif;
   --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif;
-  --bg: #070809;
-  --surface: #0d1014;
-  --surface-2: #12161d;
-  --surface-3: #171d27;
-  --glass: rgba(15, 17, 20, 0.74);
-  --glass-strong: rgba(18, 21, 26, 0.88);
+  --bg: #08080c;
+  --surface: #101016;
+  --surface-2: #17171f;
+  --surface-3: #1e1e29;
+  --glass: rgba(16, 16, 22, 0.94);
+  --glass-strong: rgba(23, 23, 31, 0.96);
   --panel: rgba(18, 22, 29, 0.84);
   --panel-2: rgba(23, 29, 39, 0.92);
   --panel-3: rgba(31, 38, 50, 0.88);
-  --line: rgba(218, 224, 232, 0.105);
-  --line-2: rgba(218, 224, 232, 0.075);
-  --text: #f1f0ec;
-  --muted: #a7adb6;
-  --muted-2: #717986;
-  --gold: #a89264;
-  --gold-2: #d8c79a;
+  --line: rgba(196, 181, 253, 0.16);
+  --line-2: rgba(196, 181, 253, 0.11);
+  --text: #f4f3f8;
+  --muted: #b8b6c6;
+  --muted-2: #a09caf;
+  --accent: #a78bfa;
+  --accent-strong: #c4b5fd;
   --green: #52c79a;
   --red: #e36a7c;
   --blue: #8ea3c9;
-  --glow: 0 0 0 1px rgba(216, 199, 154, 0.13), 0 18px 48px -30px rgba(216, 199, 154, 0.18), 0 22px 60px -36px rgba(0, 0, 0, 0.86);
+  --glow: 0 0 0 1px rgba(167, 139, 250, 0.13), 0 18px 48px -30px rgba(167, 139, 250, 0.18), 0 22px 60px -36px rgba(0, 0, 0, 0.86);
   --shadow: 0 20px 70px -46px rgba(0, 0, 0, 0.86);
   --soft-shadow: 0 16px 44px -34px rgba(0, 0, 0, 0.78);
   --inner-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.045);
-  --radius: 8px;
-  --radius-sm: 6px;
+  --radius: 12px;
+  --radius-sm: 8px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -52,7 +52,7 @@ body {
   min-height: 100vh;
   margin: 0;
   background:
-    linear-gradient(180deg, #101216 0, #08090b 280px, var(--bg) 100%),
+    linear-gradient(180deg, #111018 0, var(--bg) 320px),
     var(--bg);
   color: var(--text);
   font-feature-settings: "tnum" 1, "ss01" 1;
@@ -154,18 +154,18 @@ p {
 }
 
 .free-plan-card {
-  border: 1px solid rgba(216, 199, 154, 0.18);
+  border: 1px solid rgba(167, 139, 250, 0.18);
   border-radius: var(--radius);
   display: grid;
   gap: 6px;
   background:
-    linear-gradient(135deg, rgba(216, 199, 154, 0.08), rgba(142, 163, 201, 0.045)),
+    linear-gradient(135deg, rgba(167, 139, 250, 0.08), rgba(142, 163, 201, 0.045)),
     rgba(255, 255, 255, 0.024);
   padding: 16px;
 }
 
 .free-plan-card span {
-  color: var(--gold);
+  color: var(--accent);
   font-family: var(--font-display);
   font-size: 12px;
   font-weight: 700;
@@ -212,7 +212,7 @@ p {
 
 .setup-checklist svg {
   flex: 0 0 auto;
-  color: var(--gold);
+  color: var(--accent);
 }
 
 .auth-terms {
@@ -315,8 +315,8 @@ p {
   height: 0.16em;
   margin-left: 0.04em;
   border-radius: 999px;
-  background: var(--gold);
-  box-shadow: 0 0 22px rgba(216, 199, 154, 0.22);
+  background: var(--accent);
+  box-shadow: 0 0 22px rgba(167, 139, 250, 0.22);
 }
 
 .landing-hero > p {
@@ -344,7 +344,7 @@ p {
   width: 7px;
   height: 7px;
   border-radius: 999px;
-  background: var(--gold-2);
+  background: var(--accent-strong);
 }
 
 .landing-actions,
@@ -374,7 +374,7 @@ p {
 }
 
 .marquee-strip span {
-  border: 1px solid rgba(216, 199, 154, 0.12);
+  border: 1px solid rgba(167, 139, 250, 0.12);
   border-radius: 999px;
   color: var(--muted);
   padding: 8px 14px;
@@ -431,9 +431,9 @@ p {
 }
 
 .preview-tabs button.active {
-  border-color: rgba(216, 199, 154, 0.22);
+  border-color: rgba(167, 139, 250, 0.22);
   color: var(--text);
-  background: rgba(216, 199, 154, 0.055);
+  background: rgba(167, 139, 250, 0.055);
 }
 
 .preview-stage,
@@ -462,7 +462,7 @@ p {
 .product-mockup {
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(216, 199, 154, 0.12);
+  border: 1px solid rgba(167, 139, 250, 0.12);
   border-radius: var(--radius);
   min-height: 380px;
   background:
@@ -493,7 +493,7 @@ p {
 
 .mockup-bar em {
   font-style: normal;
-  color: var(--gold-2);
+  color: var(--accent-strong);
 }
 
 .mock-stats {
@@ -582,8 +582,8 @@ p {
   right: 13px;
   bottom: 16px;
   height: 22px;
-  border-top: 2px solid rgba(216, 199, 154, 0.62);
-  border-right: 2px solid rgba(216, 199, 154, 0.62);
+  border-top: 2px solid rgba(167, 139, 250, 0.62);
+  border-right: 2px solid rgba(167, 139, 250, 0.62);
   transform: skewX(-18deg);
 }
 
@@ -693,7 +693,7 @@ p {
 }
 
 .workflow-grid span {
-  color: var(--gold);
+  color: var(--accent);
   font-family: var(--font-sans);
   font-size: 12px;
 }
@@ -721,7 +721,7 @@ p {
 }
 
 .trust-panel > div span {
-  border: 1px solid rgba(216, 199, 154, 0.12);
+  border: 1px solid rgba(167, 139, 250, 0.12);
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
@@ -853,14 +853,14 @@ p {
 .app-mark {
   width: 48px;
   height: 48px;
-  border: 1px solid rgba(216, 199, 154, 0.18);
+  border: 1px solid rgba(167, 139, 250, 0.18);
   border-radius: var(--radius);
   display: grid;
   place-items: center;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(216, 199, 154, 0.035)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(167, 139, 250, 0.035)),
     var(--surface);
-  color: var(--gold-2);
+  color: var(--accent-strong);
   font-family: var(--font-display);
   font-weight: 720;
   box-shadow: var(--inner-highlight), var(--soft-shadow);
@@ -902,11 +902,11 @@ p {
 }
 
 .primary {
-  border-color: rgba(216, 199, 154, 0.32);
+  border-color: rgba(167, 139, 250, 0.32);
   background:
-    linear-gradient(180deg, rgba(216, 199, 154, 0.96), rgba(168, 146, 100, 0.96));
-  color: #0b0c0d;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 12px 28px -22px rgba(216, 199, 154, 0.58);
+    linear-gradient(180deg, #7c3aed, #6d28d9);
+  color: #ffffff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 12px 28px -22px rgba(167, 139, 250, 0.58);
 }
 
 .secondary,
@@ -918,7 +918,7 @@ p {
 .link-button {
   min-height: 32px;
   background: transparent;
-  color: var(--gold);
+  color: var(--accent);
   padding: 6px 8px;
 }
 
@@ -938,9 +938,9 @@ p {
 .secondary:hover,
 .icon-actions button:hover,
 .icon-actions a:hover {
-  border-color: rgba(216, 199, 154, 0.2);
-  background: rgba(216, 199, 154, 0.045);
-  box-shadow: 0 0 0 4px rgba(216, 199, 154, 0.028);
+  border-color: rgba(167, 139, 250, 0.2);
+  background: rgba(167, 139, 250, 0.045);
+  box-shadow: 0 0 0 4px rgba(167, 139, 250, 0.028);
 }
 
 .app-nav {
@@ -972,16 +972,16 @@ p {
 }
 
 .app-nav button.active {
-  border-color: rgba(216, 199, 154, 0.24);
-  background: rgba(216, 199, 154, 0.075);
-  color: var(--gold-2);
+  border-color: rgba(167, 139, 250, 0.4);
+  background: rgba(167, 139, 250, 0.14);
+  color: var(--accent-strong);
   font-weight: 680;
 }
 
 .section-title {
   justify-content: flex-start;
   margin-bottom: 14px;
-  color: var(--gold);
+  color: var(--accent);
 }
 
 .section-title h2 {
@@ -1035,7 +1035,7 @@ p {
   position: absolute;
   inset: -1px;
   pointer-events: none;
-  background: linear-gradient(135deg, rgba(216, 199, 154, 0.045), transparent 42%, rgba(142, 163, 201, 0.035));
+  background: linear-gradient(135deg, rgba(167, 139, 250, 0.045), transparent 42%, rgba(142, 163, 201, 0.035));
   opacity: 0.9;
 }
 
@@ -1057,10 +1057,10 @@ p {
 }
 
 .plan-pill {
-  border: 1px solid rgba(216, 199, 154, 0.18);
+  border: 1px solid rgba(167, 139, 250, 0.18);
   border-radius: 999px;
-  background: rgba(216, 199, 154, 0.052);
-  color: var(--gold-2);
+  background: rgba(167, 139, 250, 0.052);
+  color: var(--accent-strong);
   padding: 9px 12px;
   font-family: var(--font-display);
   font-size: 12px;
@@ -1091,8 +1091,8 @@ p {
 .metric-card:hover,
 .trade-card:hover,
 .account-card:hover {
-  border-color: rgba(216, 199, 154, 0.16);
-  box-shadow: 0 18px 48px -34px rgba(0, 0, 0, 0.88), 0 0 0 1px rgba(216, 199, 154, 0.08);
+  border-color: rgba(167, 139, 250, 0.16);
+  box-shadow: 0 18px 48px -34px rgba(0, 0, 0, 0.88), 0 0 0 1px rgba(167, 139, 250, 0.08);
   transform: translateY(-2px);
 }
 
@@ -1120,8 +1120,8 @@ p {
   border-radius: 9px;
   display: grid;
   place-items: center;
-  background: rgba(216, 199, 154, 0.055);
-  color: var(--gold);
+  background: rgba(167, 139, 250, 0.055);
+  color: var(--accent);
 }
 
 .metric-card.green .metric-icon,
@@ -1183,7 +1183,7 @@ p {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: var(--gold);
+  color: var(--accent);
   font-weight: 700;
 }
 
@@ -1242,7 +1242,7 @@ p {
 
 .period-toggle button.active {
   color: #07090d;
-  background: linear-gradient(180deg, var(--gold-2), var(--gold));
+  background: linear-gradient(180deg, var(--accent-strong), var(--accent));
 }
 
 .pnl-amount {
@@ -1265,19 +1265,19 @@ p {
 
 .equity-guide {
   pointer-events: none;
-  stroke: rgba(216, 199, 154, 0.36);
+  stroke: rgba(167, 139, 250, 0.36);
   stroke-width: 1.2;
   stroke-dasharray: 5 7;
 }
 
 .equity-hover-halo {
-  fill: rgba(216, 199, 154, 0.18);
+  fill: rgba(167, 139, 250, 0.18);
   stroke: rgba(255, 255, 255, 0.88);
   stroke-width: 2;
 }
 
 .equity-hover-dot {
-  fill: var(--gold-2);
+  fill: var(--accent-strong);
   stroke: rgba(5, 6, 9, 0.92);
   stroke-width: 2;
 }
@@ -1288,7 +1288,7 @@ p {
 
 .equity-tooltip rect {
   fill: rgba(8, 11, 16, 0.94);
-  stroke: rgba(216, 199, 154, 0.38);
+  stroke: rgba(167, 139, 250, 0.38);
   stroke-width: 1;
   filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.34));
 }
@@ -1359,7 +1359,7 @@ p {
 .editable-rule input[type="checkbox"] {
   width: 18px;
   height: 18px;
-  accent-color: var(--gold);
+  accent-color: var(--accent);
 }
 
 .editable-rule input[type="text"],
@@ -1399,9 +1399,9 @@ p {
 }
 
 .capture-detail-block {
-  border: 1px solid rgba(216, 199, 154, 0.11);
+  border: 1px solid rgba(167, 139, 250, 0.11);
   border-radius: var(--radius);
-  background: linear-gradient(180deg, rgba(216, 199, 154, 0.032), rgba(255, 255, 255, 0.014));
+  background: linear-gradient(180deg, rgba(167, 139, 250, 0.032), rgba(255, 255, 255, 0.014));
   padding: 22px;
 }
 
@@ -1459,13 +1459,13 @@ p {
 
 .capture-phase-nav button:hover {
   transform: translateY(-1px);
-  border-color: rgba(216, 199, 154, 0.24);
+  border-color: rgba(167, 139, 250, 0.24);
   background: rgba(15, 20, 29, 0.88);
 }
 
 .capture-phase-nav button.active {
-  border-color: rgba(216, 199, 154, 0.42);
-  background: linear-gradient(180deg, rgba(216, 199, 154, 0.14), rgba(255, 255, 255, 0.035));
+  border-color: rgba(167, 139, 250, 0.42);
+  background: linear-gradient(180deg, rgba(167, 139, 250, 0.14), rgba(255, 255, 255, 0.035));
   color: var(--text);
 }
 
@@ -1474,7 +1474,7 @@ p {
 }
 
 .capture-phase-nav span {
-  color: var(--gold);
+  color: var(--accent);
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -1502,9 +1502,9 @@ p {
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  border: 1px dashed rgba(216, 199, 154, 0.32);
+  border: 1px dashed rgba(167, 139, 250, 0.32);
   border-radius: var(--radius);
-  background: linear-gradient(180deg, rgba(216, 199, 154, 0.08), rgba(255, 255, 255, 0.018));
+  background: linear-gradient(180deg, rgba(167, 139, 250, 0.08), rgba(255, 255, 255, 0.018));
   padding: 22px;
 }
 
@@ -1664,7 +1664,7 @@ p {
   gap: 8px;
   place-items: center;
   background:
-    linear-gradient(135deg, rgba(216, 199, 154, 0.032), rgba(255, 255, 255, 0.018)),
+    linear-gradient(135deg, rgba(167, 139, 250, 0.032), rgba(255, 255, 255, 0.018)),
     #050609;
   color: var(--muted-2);
   text-align: center;
@@ -1779,7 +1779,7 @@ select {
   border: 1px solid rgba(185, 196, 214, 0.13);
   border-radius: 8px;
   outline: none;
-  background: rgba(10, 14, 21, 0.94);
+  background: var(--surface-2);
   color: var(--text);
   padding: 13px 14px;
   transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
@@ -1801,11 +1801,30 @@ textarea {
 
 input:focus,
 textarea:focus,
-select:focus,
-button:focus-visible {
-  border-color: rgba(216, 199, 154, 0.42);
-  background: rgba(12, 17, 26, 0.98);
-  box-shadow: 0 0 0 4px rgba(216, 199, 154, 0.075);
+select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.16);
+}
+
+:where(button, a, input, textarea, select, summary, [role="button"]):focus-visible {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: 3px;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted-2);
+  opacity: 1;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--accent);
+}
+
+::selection {
+  background: rgba(167, 139, 250, 0.32);
+  color: var(--text);
 }
 
 .time-input-wrap {
@@ -2120,7 +2139,7 @@ button:focus-visible {
 }
 
 .quality-item.amber .quality-track i {
-  background: var(--gold);
+  background: var(--accent);
 }
 
 .quality-item.green .quality-track i {
@@ -2218,7 +2237,7 @@ button:focus-visible {
 }
 
 .focus-list article.amber {
-  border-left-color: var(--gold);
+  border-left-color: var(--accent);
 }
 
 .focus-list strong {
@@ -2304,6 +2323,10 @@ button:focus-visible {
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
   background: var(--surface-2);
+}
+
+.matrix-table tbody tr:hover > * {
+  background: var(--surface-3);
 }
 
 .matrix-table tbody th {
@@ -2407,13 +2430,13 @@ button:focus-visible {
 }
 
 .calendar-month-grid button:not(:disabled):hover {
-  border-color: rgba(216, 199, 154, 0.26);
+  border-color: rgba(167, 139, 250, 0.26);
   transform: translateY(-1px);
 }
 
 .calendar-month-grid button.active {
-  border-color: var(--gold);
-  box-shadow: 0 0 0 3px rgba(216, 199, 154, 0.1);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.1);
 }
 
 .calendar-month-grid button.outside {
@@ -2482,8 +2505,8 @@ button:focus-visible {
 }
 
 .calendar-trade-list button:hover {
-  border-color: rgba(216, 199, 154, 0.22);
-  background: rgba(216, 199, 154, 0.045);
+  border-color: rgba(167, 139, 250, 0.22);
+  background: rgba(167, 139, 250, 0.045);
 }
 
 .calendar-trade-list span {
@@ -2512,8 +2535,8 @@ button:focus-visible {
 }
 
 .calendar-heatmap button:hover {
-  border-color: rgba(216, 199, 154, 0.17);
-  background: rgba(216, 199, 154, 0.038);
+  border-color: rgba(167, 139, 250, 0.17);
+  background: rgba(167, 139, 250, 0.038);
   transform: translateY(-1px);
 }
 
@@ -2757,8 +2780,8 @@ button:focus-visible {
 }
 
 .zella-shot-strip button.active {
-  border-color: rgba(216, 199, 154, 0.42);
-  box-shadow: 0 0 0 1px rgba(216, 199, 154, 0.1);
+  border-color: rgba(167, 139, 250, 0.42);
+  box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.1);
 }
 
 .zella-shot-strip img,
@@ -2939,7 +2962,7 @@ button:focus-visible {
 .coach-grid span {
   display: block;
   margin-bottom: 10px;
-  color: var(--gold);
+  color: var(--accent);
   font-family: var(--font-display);
   font-size: 12px;
   font-weight: 720;
@@ -3028,8 +3051,8 @@ button:focus-visible {
 
 .detail-shot-grid button:hover,
 .detail-shot-grid button.active {
-  border-color: rgba(216, 199, 154, 0.24);
-  background: rgba(216, 199, 154, 0.055);
+  border-color: rgba(167, 139, 250, 0.24);
+  background: rgba(167, 139, 250, 0.055);
   color: var(--text);
   transform: translateY(-1px);
 }
@@ -3090,7 +3113,7 @@ button:focus-visible {
   gap: 16px;
   margin-bottom: 16px;
   padding: 16px;
-  background: linear-gradient(180deg, rgba(216, 199, 154, 0.032), rgba(255, 255, 255, 0.018));
+  background: linear-gradient(180deg, rgba(167, 139, 250, 0.032), rgba(255, 255, 255, 0.018));
   box-shadow: var(--soft-shadow);
 }
 
@@ -3162,7 +3185,7 @@ button:focus-visible {
 }
 
 .entry-list span {
-  color: var(--gold);
+  color: var(--accent);
   font-size: 12px;
   font-weight: 700;
 }
@@ -3202,7 +3225,7 @@ button:focus-visible {
 }
 
 .settings-card svg {
-  color: var(--gold);
+  color: var(--accent);
 }
 
 .settings-card code {
@@ -3654,17 +3677,17 @@ textarea {
 
 .screenshot-compose .shot:hover {
   transform: translateY(-1px);
-  border-color: rgba(216, 199, 154, 0.42);
+  border-color: rgba(167, 139, 250, 0.42);
 }
 
 .screenshot-compose .shot:focus-visible {
-  outline: 2px solid rgba(216, 199, 154, 0.78);
+  outline: 2px solid rgba(167, 139, 250, 0.78);
   outline-offset: 3px;
 }
 
 .screenshot-compose .shot.active {
-  border-color: rgba(216, 199, 154, 0.72);
-  box-shadow: 0 0 0 1px rgba(216, 199, 154, 0.22), 0 18px 44px rgba(0, 0, 0, 0.22);
+  border-color: rgba(167, 139, 250, 0.72);
+  box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.22), 0 18px 44px rgba(0, 0, 0, 0.22);
 }
 
 .screenshot-compose .shot img,
@@ -3684,11 +3707,11 @@ textarea {
 }
 
 .screenshot-compose .shot-controls span[role='button']:hover {
-  background: rgba(216, 199, 154, 0.24);
+  background: rgba(167, 139, 250, 0.24);
 }
 
 .screenshot-compose .shot-controls span[role='button']:focus-visible {
-  outline: 2px solid rgba(216, 199, 154, 0.78);
+  outline: 2px solid rgba(167, 139, 250, 0.78);
   outline-offset: 2px;
 }
 

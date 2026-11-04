@@ -68,7 +68,7 @@ async function main() {
     await assertNoOverflow(page, 'Desktop app');
 
     await page.getByRole('button', { name: /Add Trade/u }).first().click();
-    await page.getByLabel('P&L').fill('+450');
+    await page.getByLabel('P&L', { exact: true }).fill('+450');
     await page.getByLabel('RR').fill('2');
     await page.getByRole('button', { name: /Screenshots/u }).click();
     await page.locator('input[type="file"]').first().setInputFiles(screenshotPath);

@@ -438,7 +438,7 @@ function MiniChart({ trades }) {
   const losingPoint = worstPoint && worstPoint.pnl < 0 ? worstPoint : null;
   const displayPoint = hoverPoint || latestPoint;
   const displayValue = period === 'total' ? displayPoint?.value || 0 : displayPoint?.pnl || 0;
-  const chartColor = (latestPoint?.value || 0) >= 0 ? '#52e0a5' : '#e36a7c';
+  const chartColor = 'var(--accent)';
   const width = 720;
   const height = 260;
   const values = points.map((point) => point.value).concat([0]);
