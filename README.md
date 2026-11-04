@@ -84,6 +84,14 @@ Importing the same backup twice should not duplicate existing trades.
 
 The app also creates rolling automatic backups after saves and before resets. Use `Download Latest Auto Backup` or `Restore Latest Auto Backup` in Settings if the local journal state gets corrupted. These automatic backups are still browser-local, so they are not a replacement for exported `.zip` files stored somewhere safe.
 
+## Multiple Funded Accounts (Phase 2)
+
+Use **Accounts** to create, rename, set initial balances, archive/reactivate, or move trade history between local trading accounts. Trades use permanent account IDs, so renaming never splits their history. The top selector filters the dashboard, reports, charts, calendar and trade log; **All Accounts** combines all recorded trades, including archived history, once each.
+
+Existing saved trades and version 1 backups migrate without removing their notes or screenshots. New trades require an active account. ZIP exports always include every account and trade. Conflicting imports stop without replacing current records. Realised P&L must be entered net of fees; daily totals use the trade date and your browser's local date. Phase 2 does not enforce loss limits or add Phase 3/4 rules.
+
+See [Mac update and account instructions](docs/MAC_SETUP.md#phase-2-multiple-funded-accounts).
+
 ## Development Commands
 
 ```bash
@@ -91,6 +99,7 @@ npm install
 npm test
 npm run build
 npm run test:e2e
+npm run test:accounts
 npm run stress
 npm run security:sweep
 ```

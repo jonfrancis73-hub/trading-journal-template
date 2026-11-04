@@ -72,9 +72,9 @@ async function writeKey(key, value) {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, 'readwrite');
     const request = tx.objectStore(STORE_NAME).put(value, key);
-    request.onsuccess = () => resolve();
+    tx.onabort = () => reject(tx.error || new Error('Local journal transaction was aborted.'));
     request.onerror = () => reject(request.error || new Error('Could not save local journal data.'));
-    tx.oncomplete = () => db.close();
+    tx.oncomplete = () => { db.close(); resolve(); };
   });
 }
 
@@ -83,13 +83,14 @@ async function deleteKey(key) {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, 'readwrite');
     const request = tx.objectStore(STORE_NAME).delete(key);
-    request.onsuccess = () => resolve();
+    tx.onabort = () => reject(tx.error || new Error('Local journal transaction was aborted.'));
     request.onerror = () => reject(request.error || new Error('Could not clear local journal data.'));
-    tx.oncomplete = () => db.close();
+    tx.oncomplete = () => { db.close(); resolve(); };
   });
 }
 
-function normalizeStore(store = {}) {
+export function normalizeStore(store = {}) {
+  store = migrateAccounts(clone(store));
   return {
     ...clone(emptyLocalStore),
     ...clone(store),
@@ -101,6 +102,25 @@ function normalizeStore(store = {}) {
     entries: Array.isArray(store.entries) ? store.entries : [],
     analyses: Array.isArray(store.analyses) ? store.analyses : [],
   };
+}
+
+// Names are retained as legacy metadata; IDs are the permanent relationship.
+export function migrateAccounts(store = {}) {
+  const accounts = (store.accounts?.length ? store.accounts : clone(emptyLocalStore.accounts)).map((a, index) => ({ ...a, id: a.id || `legacy-account-${index}-${encodeURIComponent(a.name || 'Account')}`, archived: Boolean(a.archived) }));
+  if (new Set(accounts.map(a => a.id)).size !== accounts.length) throw new Error('Duplicate account identifiers. Restore a valid backup.');
+  const trades = (store.trades || []).map(trade => {
+    let account = accounts.find(a => a.id === trade.accountId);
+    if (!account && !trade.accountId) {
+      const matches = accounts.filter(a => a.name === (trade.account || 'Personal'));
+      if (matches.length === 1) account = matches[0];
+    }
+    if (!account) {
+      account = { id: trade.accountId || `legacy-${encodeURIComponent(trade.account || 'Personal')}-${accounts.length}`, name: trade.account || 'Recovered Account', startingBalance: 0, archived: false };
+      accounts.push(account);
+    }
+    return { ...trade, accountId: account.id };
+  });
+  return { ...store, accounts, trades, schemaVersion: 2 };
 }
 
 export async function requestPersistentStorage() {
@@ -122,13 +142,12 @@ export async function loadLocalStore() {
     await writeKey(STORE_KEY, fresh);
     return fresh;
   }
-  try {
-    return normalizeStore(saved);
-  } catch (error) {
-    const restored = await restoreLatestLocalAutoBackup();
-    if (restored) return restored;
-    throw error;
+  const migrated = normalizeStore(saved);
+  if (saved.schemaVersion !== 2) {
+    await createLocalAutoBackup(saved, 'before_account_migration');
+    await writeKey(STORE_KEY, migrated);
   }
+  return migrated;
 }
 
 export async function writeLocalStore(store, options = {}) {
@@ -157,6 +176,9 @@ export function choosePrimaryScreenshotId(screenshots = [], primaryScreenshotId 
 
 export async function saveLocalTrade(store, trade) {
   const current = normalizeStore(store);
+  const account = current.accounts.find(a => a.id === trade.accountId);
+  const previous = current.trades.find(t => t.id === trade.id);
+  if (!account || (account.archived && previous?.accountId !== account.id)) throw new Error('Select an active trading account.');
   const now = new Date().toISOString();
   const tradeId = trade.id || id('trade');
   const screenshots = limitLocalScreenshots(trade.screenshots || []).map((shot, index) => ({
@@ -171,7 +193,8 @@ export async function saveLocalTrade(store, trade) {
     ...trade,
     id: tradeId,
     title: trade.title || `${trade.asset || 'Trade'} ${trade.direction || ''} - ${trade.date || todayString()} - ${normalizeOutcome(trade)}`.trim(),
-    account: trade.account || 'Personal',
+    accountId: account.id,
+    account: account.name,
     outcome: normalizeOutcome(trade),
     pnl: String(trade.pnl ?? ''),
     pnlValue: parseMoney(trade.pnl),
@@ -200,10 +223,23 @@ export async function deleteLocalTrade(store, tradeId) {
 
 export async function saveLocalAccounts(store, accounts = []) {
   const current = normalizeStore(store);
-  const next = accounts
-    .filter((account) => String(account.name || '').trim())
-    .map((account) => ({ ...account, id: account.id || id('account'), startingBalance: Number(account.startingBalance || 0) }));
-  return writeLocalStore({ ...current, accounts: next.length ? next : clone(emptyLocalStore.accounts) }, { reason: 'accounts_saved' });
+  const next = accounts.map(account => ({ ...account, name: String(account.name || '').trim(), id: account.id || id('account'), startingBalance: Number(account.startingBalance), archived: Boolean(account.archived) }));
+  if (next.some(a => !a.name || !Number.isFinite(a.startingBalance) || a.startingBalance < 0)) throw new Error('Every account needs a name and a valid non-negative initial balance.');
+  if (new Set(next.map(a => a.id)).size !== next.length) throw new Error('Account IDs must be unique.');
+  if (current.accounts.some(a => !next.some(n => n.id === a.id))) throw new Error('Archive accounts instead of deleting them.');
+  return writeLocalStore({ ...current, accounts: next }, { reason: 'accounts_saved' });
+}
+
+export async function assignLocalTrades(store, tradeIds, accountId) {
+  const current = normalizeStore(store);
+  const target = current.accounts.find(a => a.id === accountId && !a.archived);
+  if (!target) throw new Error('Select an active destination account.');
+  const selected = new Set(tradeIds);
+  if (!selected.size || [...selected].some(id => !current.trades.some(t => t.id === id))) throw new Error('Select existing trades to move.');
+  // Assignment changes only the relationship, even for incomplete legacy tickets.
+  const trades = current.trades.map(t => selected.has(t.id) ? { ...t, accountId: target.id, account: target.name } : t);
+  await createLocalAutoBackup(current, 'before_trade_assignment');
+  return writeLocalStore({ ...current, trades }, { reason: 'trades_assigned' });
 }
 
 export async function saveLocalPlaybooks(store, playbooks = []) {
@@ -310,7 +346,7 @@ export async function exportLocalBackup(store) {
   const { manifest, files } = backupManifest(store);
   const entries = {
     'manifest.json': strToU8(JSON.stringify({
-      version: 1,
+      version: 2,
       exportedAt: new Date().toISOString(),
       app: 'Trading Journal Template',
       store: manifest,
@@ -341,10 +377,15 @@ export async function importLocalBackup(file) {
   const manifest = JSON.parse(strFromU8(entries['manifest.json']));
   const incoming = normalizeStore(manifest.store || manifest);
   validateBackupStore(incoming);
+  for (const collection of ['accounts', 'trades', 'entries', 'analyses', 'playbooks']) {
+    const ids = incoming[collection].map(item => item.id).filter(Boolean);
+    if (new Set(ids).size !== ids.length) throw new Error(`Backup contains duplicate ${collection} identifiers. Nothing was imported.`);
+  }
   incoming.trades = incoming.trades.map((trade) => ({
     ...trade,
     screenshots: (trade.screenshots || []).map((shot) => {
-      if (!shot.backupPath || !entries[shot.backupPath]) return shot;
+      if (!shot.backupPath) return shot;
+      if (!entries[shot.backupPath]) throw new Error(`Backup is missing screenshot file: ${shot.backupPath}. Nothing was imported.`);
       return {
         ...shot,
         dataUrl: bytesToDataUrl(entries[shot.backupPath], shot.type || 'image/png'),
@@ -367,23 +408,41 @@ function validateBackupStore(store) {
   }
 }
 
-export async function mergeImportedStore(currentStore, importedStore) {
+export function mergeBackupStores(currentStore, importedStore) {
   const current = normalizeStore(currentStore);
   const incoming = normalizeStore(importedStore);
+  const isFresh = ['trades', 'entries', 'analyses', 'playbooks'].every(key => !current[key].length)
+    && current.accounts.length === 1 && current.accounts[0].id === 'personal'
+    && current.accounts[0].name === 'Personal' && !Number(current.accounts[0].startingBalance) && !current.accounts[0].archived;
+  const canonical = value => JSON.stringify(value, (key, item) => {
+    if (key === 'backupPath') return undefined;
+    return item && !Array.isArray(item) && typeof item === 'object' ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item;
+  });
   const mergeById = (left, right) => {
     const rows = new Map(left.map((item) => [item.id, item]));
-    for (const item of right) rows.set(item.id || id('import'), item);
+    for (const item of right) {
+      const key = item.id || id('import');
+      if (rows.has(key) && canonical(rows.get(key)) !== canonical(item)) throw new Error(`Backup conflicts with existing record ${key}. Nothing was imported. Export the current journal first; restore in a separate browser profile to review the backup safely.`);
+      if (!rows.has(key)) rows.set(key, item);
+    }
     return [...rows.values()];
   };
-  return writeLocalStore({
+  return {
     ...current,
-    accounts: mergeById(current.accounts, incoming.accounts),
+    accounts: mergeById(isFresh ? [] : current.accounts, incoming.accounts),
     playbooks: mergeById(current.playbooks, incoming.playbooks),
     trades: mergeById(current.trades, incoming.trades),
     entries: mergeById(current.entries, incoming.entries),
     analyses: mergeById(current.analyses, incoming.analyses),
-    settings: { ...current.settings, importedAt: new Date().toISOString() },
-  }, { reason: 'backup_imported' });
+    profile: isFresh ? incoming.profile : current.profile,
+    settings: { ...(isFresh ? incoming.settings : current.settings), importedAt: new Date().toISOString() },
+  };
+}
+
+export async function mergeImportedStore(currentStore, importedStore) {
+  const next = mergeBackupStores(currentStore, importedStore);
+  await createLocalAutoBackup(currentStore, 'before_import');
+  return writeLocalStore(next, { reason: 'backup_imported' });
 }
 
 function backupSummary(store, blob, reason) {
@@ -431,14 +490,7 @@ export async function restoreLocalAutoBackup(backupId = '') {
   const backup = backupId ? backups.find((item) => item.id === backupId) : backups[0];
   if (!backup?.blob) throw new Error('No automatic backup is available yet.');
   const imported = await importLocalBackup(backup.blob);
+  const current = await readKey(STORE_KEY);
+  if (current) await createLocalAutoBackup(current, 'before_restore');
   return writeLocalStore(imported, { reason: 'auto_backup_restored' });
-}
-
-async function restoreLatestLocalAutoBackup() {
-  const backups = await readLocalAutoBackups();
-  if (!backups[0]?.blob) return null;
-  const imported = await importLocalBackup(backups[0].blob);
-  const restored = normalizeStore(imported);
-  await writeKey(STORE_KEY, restored);
-  return restored;
 }

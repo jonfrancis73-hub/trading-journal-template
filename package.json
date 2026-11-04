@@ -12,6 +12,7 @@
     "preview": "vite preview --host 127.0.0.1",
     "test": "node --test",
     "test:e2e": "node scripts/e2e-smoke.mjs",
+    "test:accounts": "node scripts/e2e-accounts.mjs",
     "stress": "node scripts/stress-check.mjs",
     "stress:browser": "node scripts/e2e-heavy-stress.mjs",
     "security:sweep": "node scripts/security-sweep.mjs"

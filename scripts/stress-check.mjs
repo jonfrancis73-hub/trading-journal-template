@@ -9,7 +9,7 @@ const shouldStartServer = !process.env.APP_URL;
 
 function startServer() {
   if (!shouldStartServer) return null;
-  const child = spawn('npx', ['vite', '--host', '127.0.0.1', '--port', stressPort], {
+  const child = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', stressPort], {
     cwd: process.cwd(),
     stdio: 'pipe',
     shell: false,

@@ -40,13 +40,16 @@ import {
 import {
   MAX_LOCAL_SCREENSHOTS,
   clearLocalStore,
-  emptyLocalStore,
+  assignLocalTrades,
   exportLocalAutoBackup,
   exportLocalBackup,
   importLocalBackup,
   listLocalAutoBackups,
   loadLocalStore,
   mergeImportedStore,
+  writeLocalStore,
+  createLocalAutoBackup,
+  normalizeStore,
   requestPersistentStorage,
   restoreLocalAutoBackup,
   saveLocalAccounts,
@@ -138,7 +141,7 @@ const tabs = [
   { id: 'settings', label: 'Settings', Icon: Settings },
 ];
 
-const visibleTabIds = new Set(['dashboard', 'capture', 'log', 'reports']);
+const visibleTabIds = new Set(['dashboard', 'capture', 'log', 'reports', 'accounts']);
 
 const defaultTradingRules = [
   'Mark draw on liquidity before entry',
@@ -686,6 +689,10 @@ function Dashboard({ trades, accounts, settings, setTab, onSaveSettings }) {
       </section>
 
       <section className="metrics-grid">
+        <StatCard Icon={WalletCards} label="Account Balance" value={money(accounts.reduce((sum, a) => sum + Number(a.startingBalance || 0), 0) + stats.netPnl)} />
+        <StatCard Icon={Database} label="Today’s Realised P&L" value={money(calculateAdvancedStats(trades.filter(t => t.date === new Date().toLocaleDateString('en-CA'))).netPnl)} />
+        <StatCard Icon={BarChart3} label="Average Win" value={money(stats.averageWin)} />
+        <StatCard Icon={BarChart3} label="Average Loss" value={money(stats.averageLoss)} />
         <StatCard Icon={Database} label="Net P&L" value={money(stats.netPnl)} tone={stats.netPnl >= 0 ? 'green' : 'red'} />
         <StatCard Icon={Target} label="Win Rate" value={pct(stats.winRate)} sub={`${stats.wins}W / ${stats.losses}L / ${stats.breakeven}BE`} />
         <StatCard Icon={RefreshCcw} label="Avg RR" value={stats.avgRR.toFixed(2)} />
@@ -697,7 +704,7 @@ function Dashboard({ trades, accounts, settings, setTab, onSaveSettings }) {
 
       <section className="account-strip">
         {summaries.map((account) => (
-          <button className="account-card" key={account.name} type="button" onClick={() => setTab('accounts')}>
+          <button className="account-card" key={account.id} type="button" onClick={() => setTab('accounts')}>
             <span><WalletCards size={16} /> {account.name}</span>
             <strong>{money(account.currentBalance)}</strong>
             <small>{account.trades} trades · {money(account.stats.netPnl)} net</small>
@@ -887,24 +894,15 @@ function unique(values) {
 }
 
 function accountSummaries(trades, accounts = []) {
-  const names = [...new Set([...(accounts || []).map((account) => account.name), ...trades.map((trade) => trade.account || 'Personal')].filter(Boolean))];
-  return names.map((name) => {
-    const account = accounts.find((item) => item.name === name) || { name, startingBalance: 0 };
-    const accountTrades = trades.filter((trade) => (trade.account || 'Personal') === name);
-    const stats = calculateStats(accountTrades);
-    const startingBalance = Number(account.startingBalance || 0);
-    return {
-      ...account,
-      name,
-      stats,
-      currentBalance: startingBalance + stats.netPnl,
-      trades: accountTrades.length,
-    };
+  return accounts.map(account => {
+    const accountTrades = trades.filter(trade => trade.accountId === account.id);
+    const stats = calculateAdvancedStats(accountTrades);
+    return { ...account, stats, currentBalance: Number(account.startingBalance || 0) + stats.netPnl, trades: accountTrades.length };
   });
 }
 
-function Capture({ onSaved, activeTrade, accounts = [], playbooks = [], onCancelEdit, onSaveTrade }) {
-  const [trade, setTrade] = useState(activeTrade || emptyTrade());
+function Capture({ onSaved, defaultAccountId, activeTrade, accounts = [], playbooks = [], onCancelEdit, onSaveTrade }) {
+  const [trade, setTrade] = useState(activeTrade || { ...emptyTrade(), accountId: defaultAccountId || '' });
   const [screenshots, setScreenshots] = useState(activeTrade?.screenshots || []);
   const [answers, setAnswers] = useState(activeTrade?.answers || {});
   const [selectedScreenshotId, setSelectedScreenshotId] = useState(activeTrade?.primaryScreenshotId || activeTrade?.screenshots?.[0]?.id || '');
@@ -914,7 +912,7 @@ function Capture({ onSaved, activeTrade, accounts = [], playbooks = [], onCancel
   const fileRef = useRef(null);
   const followups = useMemo(() => generateFollowups(trade.note, trade), [trade]);
   const draft = useMemo(() => buildJournalDraft({ ...trade, rr: normalizeRR(trade.rr) }, answers), [trade, answers]);
-  const errors = validateTrade(trade, screenshots);
+  const errors = [...validateTrade(trade, screenshots), ...(!trade.accountId ? ['Select a trading account.'] : [])];
   const phaseIndex = Math.max(0, capturePhases.findIndex((item) => item.id === phase));
   const isFinalPhase = phase === 'review';
   const selectedScreenshot = useMemo(() => (
@@ -924,7 +922,7 @@ function Capture({ onSaved, activeTrade, accounts = [], playbooks = [], onCancel
   ), [screenshots, selectedScreenshotId, trade.primaryScreenshotId]);
 
   useEffect(() => {
-    setTrade(activeTrade || emptyTrade());
+    setTrade(activeTrade || { ...emptyTrade(), accountId: defaultAccountId || '' });
     setScreenshots(activeTrade?.screenshots || []);
     setSelectedScreenshotId(activeTrade?.primaryScreenshotId || activeTrade?.screenshots?.[0]?.id || '');
     setAnswers(activeTrade?.answers || {});
@@ -1093,7 +1091,7 @@ function Capture({ onSaved, activeTrade, accounts = [], playbooks = [], onCancel
           <Field label="Date"><input type="date" value={trade.date} onChange={(event) => update('date', event.target.value)} /></Field>
           <Field label="Asset"><input value={trade.asset} onChange={(event) => update('asset', event.target.value.toUpperCase())} /></Field>
           <Field label="Account">
-            <input list="account-options" value={trade.account} onChange={(event) => update('account', event.target.value)} />
+            <select aria-label="Trade account" value={trade.accountId || ''} onChange={event => update('accountId', event.target.value)}><option value="">Select an account</option>{accounts.filter(a => !a.archived || a.id === activeTrade?.accountId).map(a => <option key={a.id} value={a.id}>{a.name}{a.archived ? ' (archived)' : ''}</option>)}</select>
           </Field>
           <Field label="Strategy"><input value={trade.strategy} onChange={(event) => update('strategy', event.target.value)} /></Field>
           <Field label="Session"><select value={trade.session || ''} onChange={(event) => update('session', event.target.value)}>{SESSION_OPTIONS.map((item) => <option key={item}>{item}</option>)}</select></Field>
@@ -1302,7 +1300,7 @@ function TradeCard({ trade, onDelete, onEdit, onToggleReview, onReview, deleteBu
         {newsCount > 0 && <span><Newspaper size={12} /> {newsCount}</span>}
       </div>
       <div>
-        <span>{trade.date} · {trade.strategy || 'No strategy'}</span>
+        <span>{trade.account} · {trade.date} · {trade.strategy || 'No strategy'}</span>
         <h3>{trade.asset} {trade.direction}</h3>
         <p>{trade.note || trade.title}</p>
       </div>
@@ -1444,6 +1442,7 @@ function TradeDetailPage({ trade, playbooks = [], onBack, onEdit, onToggleReview
 
       <section className="zella-stat-strip">
         {[
+          ['Account', trade.account || 'Not set'],
           ['Date', trade.date || 'Not set'],
           ['Asset', trade.asset || 'No asset'],
           ['Direction', trade.direction || 'No direction'],
@@ -2102,7 +2101,17 @@ function AnalysisPanel({ analyses, onSave }) {
   );
 }
 
-function Accounts({ trades, accounts, onSave }) {
+function Accounts({ trades, accounts, onSave, onAssign }) {
+  const [sourceId, setSourceId] = useState('');
+  const [targetId, setTargetId] = useState('');
+  const [assignmentMessage, setAssignmentMessage] = useState('');
+  const [assigning, setAssigning] = useState(false);
+  const moveIds = trades.filter(t => t.accountId === sourceId).map(t => t.id);
+  async function moveTrades() {
+    if (!window.confirm(`Move ${moveIds.length} trades from ${accounts.find(a => a.id === sourceId)?.name} to ${accounts.find(a => a.id === targetId)?.name}? Notes and screenshots will be preserved. A recovery backup will be created first.`)) return;
+    setAssigning(true);
+    try { await onAssign(moveIds, targetId); setAssignmentMessage('Trades assigned.'); } catch (error) { setAssignmentMessage(error.message); } finally { setAssigning(false); }
+  }
   const summaries = accountSummaries(trades, accounts);
   const [draft, setDraft] = useState(accounts.length ? accounts : [{ id: 'personal', name: 'Personal', startingBalance: 0 }]);
 
@@ -2119,7 +2128,7 @@ function Accounts({ trades, accounts, onSave }) {
   }
 
   function removeAccount(index) {
-    setDraft((current) => current.filter((_, itemIndex) => itemIndex !== index));
+    update(index, 'archived', !draft[index].archived);
   }
 
   return (
@@ -2127,29 +2136,35 @@ function Accounts({ trades, accounts, onSave }) {
       <section className="metrics-grid">
         {summaries.map((account) => (
           <StatCard
-            key={account.name}
+            key={account.id}
             Icon={WalletCards}
             label={account.name}
             value={money(account.currentBalance)}
-            sub={`${account.trades} trades · ${pct(account.stats.winRate)} win rate`}
+            sub={`${account.trades} trades · ${pct(account.stats.winRate)} win rate · Today: ${money(calculateAdvancedStats(trades.filter(t => t.accountId === account.id && t.date === new Date().toLocaleDateString('en-CA'))).netPnl)}${account.archived ? ' · Archived' : ''}`}
             tone={account.stats.netPnl >= 0 ? 'green' : 'red'}
           />
         ))}
       </section>
       <section className="panel">
         <div className="panel-head">
-          <div><span className="eyebrow">Accounts</span><h2>Balances</h2></div>
+          <div><span className="eyebrow">Accounts</span><h2>Balances</h2><p>Existing trades keep their history. Edit a trade to assign or move it to an account. Archived accounts remain available for review.</p></div>
           <div className="head-actions">
             <button className="secondary" type="button" onClick={addAccount}><Plus size={16} /> Add Account</button>
-            <button className="primary" type="button" onClick={() => onSave(draft.filter((account) => account.name?.trim()))}><Save size={16} /> Save Accounts</button>
+            <button className="primary" type="button" onClick={async () => { try { await onSave(draft); window.alert('Accounts saved.'); } catch (error) { window.alert(error.message); } }}><Save size={16} /> Save Accounts</button>
           </div>
         </div>
+        <div className="form-grid">
+          <Field label="Move history from"><select value={sourceId} onChange={e => setSourceId(e.target.value)}><option value="">Select source account</option>{accounts.map(a => <option key={a.id} value={a.id}>{a.name}{a.archived ? ' (archived)' : ''}</option>)}</select></Field>
+          <Field label="Move history to"><select value={targetId} onChange={e => setTargetId(e.target.value)}><option value="">Select destination account</option>{accounts.filter(a => !a.archived && a.id !== sourceId).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</select></Field>
+          <button className="secondary" type="button" disabled={assigning || !moveIds.length || !targetId || sourceId === targetId} onClick={moveTrades}>Move {moveIds.length} trades</button>
+        </div>
+        {assignmentMessage && <Notice>{assignmentMessage}</Notice>}
         <div className="account-editor">
           {draft.map((account, index) => (
             <div className="account-edit-row" key={account.id || index}>
-              <Field label="Account Name"><input value={account.name} onChange={(event) => update(index, 'name', event.target.value)} /></Field>
-              <Field label="Starting Balance"><input value={account.startingBalance || ''} onChange={(event) => update(index, 'startingBalance', Number(event.target.value || 0))} /></Field>
-              <button className="secondary" type="button" onClick={() => removeAccount(index)}><Trash2 size={16} /> Remove</button>
+              <Field label="Account Name"><input aria-label="Account Name" value={account.name} onChange={(event) => update(index, 'name', event.target.value)} /><small>Account ID: {account.id}</small></Field>
+              <Field label="Starting Balance"><input type="number" min="0" step="0.01" value={account.startingBalance || ''} onChange={(event) => update(index, 'startingBalance', Number(event.target.value || 0))} /></Field>
+              <button className="secondary" type="button" onClick={() => removeAccount(index)}>{account.archived ? 'Reactivate' : 'Archive'}</button>
             </div>
           ))}
         </div>
@@ -2334,6 +2349,7 @@ export default function App() {
 
 function ProductionApp() {
   const [store, setStore] = useState(null);
+  const [selectedAccountId, setSelectedAccountId] = useState('');
   const [message, setMessage] = useState('');
   const [editingTrade, setEditingTrade] = useState(null);
   const [storageStatus, setStorageStatus] = useState(null);
@@ -2355,6 +2371,7 @@ function ProductionApp() {
   async function load() {
     const nextStore = await loadLocalStore();
     setStore(nextStore);
+    setSelectedAccountId(current => nextStore.accounts.some(a => a.id === current) ? current : '');
     setAutoBackups(await listLocalAutoBackups());
     return nextStore;
   }
@@ -2370,7 +2387,6 @@ function ProductionApp() {
     load()
       .catch((error) => {
         setMessage(error.message);
-        setStore(emptyLocalStore);
       });
   }, []);
 
@@ -2443,7 +2459,11 @@ function ProductionApp() {
 
   async function importNotion() {
     const result = await importNotionTrades();
-    const nextStore = await mergeImportedStore(store, { trades: result.trades || [] });
+    await createLocalAutoBackup(store, 'before_notion_import');
+    const incoming = normalizeStore({ accounts: store.accounts, trades: result.trades || [] });
+    const rows = new Map(store.trades.map(t => [t.id, t]));
+    for (const trade of incoming.trades) rows.set(trade.id, { ...trade, accountId: rows.get(trade.id)?.accountId || trade.accountId });
+    const nextStore = await writeLocalStore({ ...store, accounts: incoming.accounts, trades: [...rows.values()] });
     setStore(nextStore);
     await refreshAutoBackups();
     setMessage(`Imported ${result.imported} Notion trades.`);
@@ -2454,6 +2474,7 @@ function ProductionApp() {
     const nextStore = await clearLocalStore();
     setStore(nextStore);
     setEditingTrade(null);
+    setSelectedAccountId('');
     await refreshAutoBackups();
     setMessage('Journal cleared.');
     navigate('/app');
@@ -2474,23 +2495,26 @@ function ProductionApp() {
     const nextStore = await restoreLocalAutoBackup(backupId);
     setStore(nextStore);
     setEditingTrade(null);
+    setSelectedAccountId('');
     await refreshAutoBackups();
     setMessage('Automatic backup restored.');
     navigate('/app');
   }
 
   if (!store) {
-    return <main className="app-shell loading"><Loader2 className="spin" /> Loading Trading Journal...</main>;
+    return <main className="app-shell loading">{message ? <section className="panel"><Notice tone="error">{message} Your saved journal has not been replaced.</Notice><button className="secondary" onClick={() => window.location.reload()}>Retry loading</button><button className="secondary" onClick={() => exportAutoBackup()}>Download Latest Auto Backup</button><button className="secondary" onClick={async () => { if (window.confirm('Restore the latest automatic backup? This replaces the saved journal after creating a recovery snapshot.')) { try { await restoreAutoBackup(); } catch (error) { setMessage(error.message); } } }}>Restore Latest Auto Backup</button></section> : <><Loader2 className="spin" /> Loading Trading Journal...</>}</main>;
   }
 
-  const trades = store.trades || [];
-  const tradeRecords = trades.filter(isTradeRecord);
+  const trades = (store.trades || []).map(t => ({ ...t, account: store.accounts.find(a => a.id === t.accountId)?.name || t.account }));
+  const allTradeRecords = trades.filter(isTradeRecord);
+  const tradeRecords = allTradeRecords.filter(t => !selectedAccountId || t.accountId === selectedAccountId);
+  const selectedAccounts = (store.accounts || []).filter(a => !selectedAccountId || a.id === selectedAccountId);
   const appRoute = route === '/' ? '/app' : route;
   const rawTabFromRoute = appRoute.replace(/^\/app\/?/u, '') || 'dashboard';
   const tabFromRoute = ['analytics', 'analysis', 'queue'].includes(rawTabFromRoute) ? 'reports' : rawTabFromRoute;
   const tradeDetailMatch = /^trade\/(.+)$/u.exec(tabFromRoute);
   const tradeDetailId = tradeDetailMatch ? decodeURIComponent(tradeDetailMatch[1]) : '';
-  const detailTrade = tradeDetailId ? tradeRecords.find((trade) => trade.id === tradeDetailId) : null;
+  const detailTrade = tradeDetailId ? allTradeRecords.find((trade) => trade.id === tradeDetailId) : null;
   const appTabs = tabs;
   const visibleAppTabs = appTabs.filter((item) => visibleTabIds.has(item.id));
   const unknownAppRoute = appRoute.startsWith('/app/') && !tradeDetailMatch && !appTabs.some((item) => item.id === tabFromRoute);
@@ -2516,6 +2540,7 @@ function ProductionApp() {
           <div><p className="eyebrow">Local-first journal</p><h1>Trading Journal Template</h1></div>
         </div>
         <div className="topbar-actions">
+          <select aria-label="View account" value={selectedAccountId} onChange={event => { setSelectedAccountId(event.target.value); setEditingTrade(null); if (tab === 'trade-detail') setTab('dashboard'); }}><option value="">All Accounts</option>{(store.accounts || []).map(a => <option key={a.id} value={a.id}>{a.name}{a.archived ? ' (archived)' : ''}</option>)}</select>
           <button className="secondary" type="button" onClick={exportBackup}><Download size={16} /> Export Backup</button>
           <button className="primary" onClick={() => setTab('capture')}><Plus size={17} /> Add Trade</button>
           <button className="secondary icon-only" type="button" aria-label="Settings" title="Settings" onClick={() => setTab('settings')}><Settings size={17} /></button>
@@ -2540,15 +2565,15 @@ function ProductionApp() {
       )}
 
       {tab === 'not-found' && <section className="panel"><Notice tone="error">This app route does not exist.</Notice></section>}
-      {tab === 'dashboard' && <Dashboard trades={tradeRecords} accounts={store.accounts || []} settings={store.settings || {}} setTab={setTab} onSaveSettings={saveSettings} />}
-      {tab === 'capture' && <Capture activeTrade={editingTrade} accounts={store.accounts || []} playbooks={store.playbooks || []} onCancelEdit={() => setEditingTrade(null)} onSaveTrade={saveTrade} onSaved={async () => { setEditingTrade(null); await load(); setMessage('Trade saved.'); }} />}
+      {tab === 'dashboard' && <Dashboard key={selectedAccountId} trades={tradeRecords} accounts={selectedAccounts} settings={store.settings || {}} setTab={setTab} onSaveSettings={saveSettings} />}
+      {tab === 'capture' && <Capture key={selectedAccountId} defaultAccountId={selectedAccounts.length === 1 && !selectedAccounts[0].archived ? selectedAccounts[0].id : ""} activeTrade={editingTrade} accounts={store.accounts || []} playbooks={store.playbooks || []} onCancelEdit={() => setEditingTrade(null)} onSaveTrade={saveTrade} onSaved={async () => { setEditingTrade(null); await load(); setMessage('Trade saved.'); }} />}
       {tab === 'log' && <TradeLog trades={tradeRecords} onDelete={removeTrade} onEdit={editTrade} onReview={openTradeReview} onToggleReview={toggleReview} />}
       {tab === 'trade-detail' && (detailTrade
         ? <TradeDetailPage trade={detailTrade} playbooks={store.playbooks || []} onBack={() => setTab('log')} onEdit={editTrade} onToggleReview={async (trade) => { await toggleReview(trade); await load(); }} />
         : <section className="panel"><Notice tone="error">This trade could not be found.</Notice><button className="secondary" type="button" onClick={() => setTab('log')}>Back to Trade Log</button></section>)}
       {tab === 'playbooks' && <PlaybooksPanel playbooks={store.playbooks || []} trades={tradeRecords} onSave={savePlaybooks} />}
-      {tab === 'reports' && <Insights trades={tradeRecords} onReview={openTradeReview} />}
-      {tab === 'accounts' && <Accounts trades={tradeRecords} accounts={store.accounts || []} onSave={saveAccounts} />}
+      {tab === 'reports' && <Insights key={selectedAccountId} trades={tradeRecords} onReview={openTradeReview} />}
+      {tab === 'accounts' && <Accounts trades={allTradeRecords} accounts={store.accounts || []} onSave={saveAccounts} onAssign={async (ids, accountId) => { setStore(await assignLocalTrades(store, ids, accountId)); await refreshAutoBackups(); }} />}
       {tab === 'daily' && <DailyEntryPanel entries={store.entries || []} onSave={(entry) => saveItem('entries', entry)} />}
       {tab === 'settings' && <SettingsPanel store={store} storageStatus={storageStatus} autoBackups={autoBackups} onExport={exportBackup} onImport={importBackup} onClear={clearJournal} onImportNotion={importNotion} onExportAutoBackup={exportAutoBackup} onRestoreAutoBackup={restoreAutoBackup} />}
     </main>

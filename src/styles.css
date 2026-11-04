@@ -4249,3 +4249,7 @@ textarea {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* Account controls reuse the Phase 1 night-mode form styles. */
+.topbar-actions > select { width: min(100%, 260px); min-width: 0; }
+.account-edit-row small { overflow-wrap: anywhere; }
