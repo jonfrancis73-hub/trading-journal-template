@@ -60,6 +60,10 @@ async function main() {
   await writeFile(screenshotPath, pngBytes);
 
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, acceptDownloads: true });
+  const notionRequests = [];
+  page.on('request', (request) => {
+    if (request.url().includes('/api/notion/')) notionRequests.push(request.url());
+  });
   try {
     await waitForServer(page);
     await deleteDatabase(page);
@@ -68,7 +72,7 @@ async function main() {
     await assertNoOverflow(page, 'Desktop app');
 
     await page.getByRole('button', { name: /Add Trade/u }).first().click();
-    await page.getByLabel('P&L').fill('+450');
+    await page.getByLabel('P&L', { exact: true }).fill('+450');
     await page.getByLabel('RR').fill('2');
     await page.getByRole('button', { name: /Screenshots/u }).click();
     await page.locator('input[type="file"]').first().setInputFiles(screenshotPath);
@@ -120,6 +124,16 @@ async function main() {
     await page.waitForSelector('text=Backup imported.', { timeout: 15000 });
     await page.getByRole('button', { name: /Trade Log/u }).click();
     await page.waitForSelector('text=MNQ Short', { timeout: 15000 });
+
+    await page.getByRole('button', { name: /Settings/u }).click();
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.getByRole('button', { name: /Restore Latest Auto Backup/u }).click();
+    await page.waitForSelector('text=Automatic backup restored.', { timeout: 15000 });
+    await page.getByRole('button', { name: /Trade Log/u }).click();
+    await page.getByTitle('Review trade').first().click();
+    await page.reload();
+    await page.waitForSelector('img[alt*="chart"], img[alt*="screenshot"], img[alt*="Trade screenshot"]', { timeout: 15000 });
+    if (notionRequests.length) throw new Error('Notion was contacted without an explicit import action.');
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
