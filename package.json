@@ -12,9 +12,11 @@
     "preview": "vite preview --host 127.0.0.1",
     "test": "node --test",
     "test:e2e": "node scripts/e2e-smoke.mjs",
+    "test:accounts": "node scripts/e2e-accounts.mjs",
     "stress": "node scripts/stress-check.mjs",
     "stress:browser": "node scripts/e2e-heavy-stress.mjs",
-    "security:sweep": "node scripts/security-sweep.mjs"
+    "security:sweep": "node scripts/security-sweep.mjs",
+    "test:risk-discipline": "node scripts/e2e-risk-discipline.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "6.0.3",
@@ -22,8 +24,8 @@
     "lucide-react": "1.21.0",
     "react": "19.2.7",
     "react-dom": "19.2.7",
-    "react-router-dom": "7.18.1",
-    "vite": "8.1.0"
+    "react-router-dom": "7.18.5",
+    "vite": "8.3.5"
   },
   "devDependencies": {
     "@playwright/test": "1.61.1"

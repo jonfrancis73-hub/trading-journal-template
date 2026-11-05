@@ -4249,3 +4249,21 @@ textarea {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* Account controls reuse the Phase 1 night-mode form styles. */
+.topbar-actions > select { width: min(100%, 260px); min-width: 0; }
+.account-edit-row small { overflow-wrap: anywhere; }
+
+
+.risk-status { padding: 1.2rem; margin: 1rem 0; border: 1px solid #9766ef; border-radius: 12px; background: #241735; }
+.risk-status.breached { background: #541726; border: 2px solid #ff506f; color: #ffccd5; }
+.risk-status.approaching { background: #483319; border-color: #edb65b; }
+.risk-history { padding: .75rem; border-bottom: 1px solid #43324f; overflow-wrap: anywhere; }
+.risk-panel label { display: grid; gap: .4rem; margin-bottom: 1rem; }
+.discipline-panel fieldset { border: 1px solid #59416e; border-radius: 12px; margin: 1rem 0; padding: 1rem; min-width: 0; }
+.checklist-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: .8rem 0; }
+.checklist-row select { width: 160px; flex-shrink: 0; }
+.discipline-panel progress { display: block; width: 100%; accent-color: #ad7cff; margin: .6rem 0; }
+.discipline-panel > label, .discipline-panel form > label { display: grid; gap: .5rem; margin: 1rem 0; }
+.discipline-panel .risk-history { display: block; text-align: left; width: 100%; }
+@media(max-width:600px) { .checklist-row { align-items: stretch; flex-direction: column; } .checklist-row select { width: 100%; } }

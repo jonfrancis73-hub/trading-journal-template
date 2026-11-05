@@ -15,7 +15,7 @@ const pngBytes = Buffer.from(
 
 function startServer() {
   if (!shouldStartServer) return null;
-  const child = spawn('npx', ['vite', '--host', '127.0.0.1', '--port', e2ePort], {
+  const child = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', e2ePort], {
     cwd: process.cwd(),
     stdio: 'pipe',
     shell: false,
@@ -54,7 +54,7 @@ async function deleteDatabase(page) {
 
 async function main() {
   const server = startServer();
-  const browser = await chromium.launch();
+  const browser = await chromium.launch(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH, args: ['--no-sandbox'] } : {});
   const tempDir = await mkdtemp(path.join(tmpdir(), 'journal-template-e2e-'));
   const screenshotPath = path.join(tempDir, 'chart.png');
   await writeFile(screenshotPath, pngBytes);
@@ -68,6 +68,7 @@ async function main() {
     await assertNoOverflow(page, 'Desktop app');
 
     await page.getByRole('button', { name: /Add Trade/u }).first().click();
+    await page.getByLabel('Trade account', { exact: true }).selectOption('personal');
     await page.getByLabel('P&L', { exact: true }).fill('+450');
     await page.getByLabel('RR').fill('2');
     await page.getByRole('button', { name: /Screenshots/u }).click();

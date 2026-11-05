@@ -39,6 +39,7 @@ export function filterTrades(trades = [], filters = {}) {
     const date = String(trade.date || '');
     if (filters.startDate && date < filters.startDate) return false;
     if (filters.endDate && date > filters.endDate) return false;
+    if (filters.accountId && trade.accountId !== filters.accountId) return false;
     if (filters.account && (trade.account || 'Personal') !== filters.account) return false;
     if (filters.asset && trade.asset !== filters.asset) return false;
     if (filters.outcome && normalizeOutcome(trade) !== filters.outcome) return false;
