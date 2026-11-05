@@ -88,7 +88,7 @@ The app also creates rolling automatic backups after saves and before resets. Us
 
 Use **Accounts** to create, rename, set initial balances, archive/reactivate, or move trade history between local trading accounts. Trades use permanent account IDs, so renaming never splits their history. The top selector filters the dashboard, reports, charts, calendar and trade log; **All Accounts** combines all recorded trades, including archived history, once each.
 
-Existing saved trades and version 1 backups migrate without removing their notes or screenshots. New trades require an active account. ZIP exports always include every account and trade. Conflicting imports stop without replacing current records. Realised P&L must be entered net of fees; daily totals use the trade date and your browser's local date. Phase 2 does not enforce loss limits or add Phase 3/4 rules.
+Existing saved trades and version 1 backups migrate without removing their notes or screenshots. New trades require an active account. ZIP exports always include every account and trade. Conflicting imports stop without replacing current records. Realised P&L must be entered net of fees; daily totals use the trade date and your browser's local date. Risk warnings and discipline tracking are available in the Risk Management and Discipline sections (Phases 3–4).
 
 See [Mac update and account instructions](docs/MAC_SETUP.md#phase-2-multiple-funded-accounts).
 
@@ -117,3 +117,11 @@ The sweep checks that the public template does not contain private data files, s
 ## License
 
 This template is source-available for personal use. See `LICENSE`.
+
+## Risk management and discipline (Phases 3–4)
+
+Select an individual account, then open **Risk Management** or **Discipline**. Defaults are a $500 daily net realised-loss limit and 07:30–12:00 UK session (start included, noon excluded). Settings are per account. Enter P&L **after all fees and commissions**, use the result's local calendar date, and record actual UK execution times. Open/unrealised results can be excluded from risk totals. Missing times remain unknown. Daily limits reset at this computer's local midnight; UK session status follows daylight saving automatically.
+
+Discipline has separate before/after checklists and reflections for every account/day. Only Yes/No answers enter percentages; N/A is excluded, unanswered questions remain incomplete, and all-N/A days do not count as compliant. Recorded trade days without a checklist appear as incomplete and break compliance streaks. Streaks count consecutive recorded days, not calendar days. Historical risk reviews use current settings. This manually updated journal cannot block broker orders or detect unrecorded trades.
+
+ZIP exports and rolling automatic backups include all accounts, risk settings and discipline records. Conflicting imports stop without overwriting current records. Use `npm run test:risk-discipline` for synthetic browser checks alongside the existing test commands. See [Mac ZIP installation](docs/MAC_SETUP.md#download-zip-installation-for-the-complete-application).

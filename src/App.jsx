@@ -1,3 +1,7 @@
+import DisciplinePanel from './DisciplinePanel.jsx';
+import { saveLocalDiscipline } from './localJournal.js';
+import RiskPanel from './RiskPanel.jsx';
+import { localDay, tradeSession } from './risk.js';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { BrowserRouter, useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -99,7 +103,7 @@ const today = new Date().toISOString().slice(0, 10);
 const MAX_UPLOAD_IMAGE_BYTES = 20 * 1024 * 1024;
 
 const emptyTrade = () => ({
-  date: today,
+  date: localDay(),
   asset: 'MNQ',
   account: 'Personal',
   direction: 'Short',
@@ -131,6 +135,8 @@ const emptyTrade = () => ({
 });
 
 const tabs = [
+  { id: 'discipline', label: 'Discipline', Icon: ListChecks },
+  { id: 'risk', label: 'Risk Management', Icon: ClipboardCheck },
   { id: 'dashboard', label: 'Dashboard', Icon: LayoutDashboard },
   { id: 'capture', label: 'Add Trade', Icon: Plus },
   { id: 'log', label: 'Trade Log', Icon: BookOpen },
@@ -141,7 +147,7 @@ const tabs = [
   { id: 'settings', label: 'Settings', Icon: Settings },
 ];
 
-const visibleTabIds = new Set(['dashboard', 'capture', 'log', 'reports', 'accounts']);
+const visibleTabIds = new Set(['discipline', 'risk', 'dashboard', 'capture', 'log', 'reports', 'accounts']);
 
 const defaultTradingRules = [
   'Mark draw on liquidity before entry',
@@ -1088,15 +1094,15 @@ function Capture({ onSaved, defaultAccountId, activeTrade, accounts = [], playbo
           ))}
         </nav>
         {phase === 'ticket' && <div className="form-grid trade-ticket-grid">
-          <Field label="Date"><input type="date" value={trade.date} onChange={(event) => update('date', event.target.value)} /></Field>
+          <p>Date is the realised-result day in this computer’s local timezone. Entry and exit times are actual UK execution times. Leave unknown times blank.</p><Field label="Date"><input type="date" value={trade.date} onChange={(event) => update('date', event.target.value)} /></Field>
           <Field label="Asset"><input value={trade.asset} onChange={(event) => update('asset', event.target.value.toUpperCase())} /></Field>
           <Field label="Account">
             <select aria-label="Trade account" value={trade.accountId || ''} onChange={event => update('accountId', event.target.value)}><option value="">Select an account</option>{accounts.filter(a => !a.archived || a.id === activeTrade?.accountId).map(a => <option key={a.id} value={a.id}>{a.name}{a.archived ? ' (archived)' : ''}</option>)}</select>
           </Field>
           <Field label="Strategy"><input value={trade.strategy} onChange={(event) => update('strategy', event.target.value)} /></Field>
           <Field label="Session"><select value={trade.session || ''} onChange={(event) => update('session', event.target.value)}>{SESSION_OPTIONS.map((item) => <option key={item}>{item}</option>)}</select></Field>
-          <Field label="Entry Time"><TimeInput value={trade.entryTime || ''} onChange={(value) => update('entryTime', value)} /></Field>
-          <Field label="Exit Time"><TimeInput value={trade.exitTime || ''} onChange={(value) => update('exitTime', value)} /></Field>
+          <p>Entry Time is the actual execution time in UK local time, not when you write this journal. P&L must already include all commissions and fees.</p><Field label="Entry Time"><TimeInput value={trade.entryTime || ''} onChange={(value) => update('entryTime', value)} /></Field>
+          <label><input type="checkbox" checked={trade.realised !== false} onChange={e=>update('realised',e.target.checked)}/> Realised result (exclude open/unrealised positions from risk totals)</label><Field label="Exit Time"><TimeInput value={trade.exitTime || ''} onChange={(value) => update('exitTime', value)} /></Field>
           <Field label="Direction"><select value={trade.direction} onChange={(event) => update('direction', event.target.value)}>{DIRECTIONS.map((item) => <option key={item}>{item}</option>)}</select></Field>
           <Field label="Outcome"><select value={trade.outcome} onChange={(event) => update('outcome', event.target.value)}>{OUTCOMES.map((item) => <option key={item}>{item}</option>)}</select></Field>
           <Field label="P&L"><input value={trade.pnl} placeholder="+450 / -200" onChange={(event) => update('pnl', event.target.value)} /></Field>
@@ -1301,7 +1307,7 @@ function TradeCard({ trade, onDelete, onEdit, onToggleReview, onReview, deleteBu
       </div>
       <div>
         <span>{trade.account} · {trade.date} · {trade.strategy || 'No strategy'}</span>
-        <h3>{trade.asset} {trade.direction}</h3>
+        <h3>{trade.asset} {trade.direction}</h3>{trade.riskSession === false && <strong className="red">Outside permitted trading hours</strong>}{trade.riskSession === null && <small>Execution time unknown / not applicable</small>}
         <p>{trade.note || trade.title}</p>
       </div>
       <div className="trade-card-foot">
@@ -2567,12 +2573,14 @@ function ProductionApp() {
       {tab === 'not-found' && <section className="panel"><Notice tone="error">This app route does not exist.</Notice></section>}
       {tab === 'dashboard' && <Dashboard key={selectedAccountId} trades={tradeRecords} accounts={selectedAccounts} settings={store.settings || {}} setTab={setTab} onSaveSettings={saveSettings} />}
       {tab === 'capture' && <Capture key={selectedAccountId} defaultAccountId={selectedAccounts.length === 1 && !selectedAccounts[0].archived ? selectedAccounts[0].id : ""} activeTrade={editingTrade} accounts={store.accounts || []} playbooks={store.playbooks || []} onCancelEdit={() => setEditingTrade(null)} onSaveTrade={saveTrade} onSaved={async () => { setEditingTrade(null); await load(); setMessage('Trade saved.'); }} />}
-      {tab === 'log' && <TradeLog trades={tradeRecords} onDelete={removeTrade} onEdit={editTrade} onReview={openTradeReview} onToggleReview={toggleReview} />}
+      {tab === 'log' && <TradeLog trades={tradeRecords.map(t=>({...t, riskSession: tradeSession(t,store.accounts.find(a=>a.id===t.accountId))}))} onDelete={removeTrade} onEdit={editTrade} onReview={openTradeReview} onToggleReview={toggleReview} />}
       {tab === 'trade-detail' && (detailTrade
         ? <TradeDetailPage trade={detailTrade} playbooks={store.playbooks || []} onBack={() => setTab('log')} onEdit={editTrade} onToggleReview={async (trade) => { await toggleReview(trade); await load(); }} />
         : <section className="panel"><Notice tone="error">This trade could not be found.</Notice><button className="secondary" type="button" onClick={() => setTab('log')}>Back to Trade Log</button></section>)}
       {tab === 'playbooks' && <PlaybooksPanel playbooks={store.playbooks || []} trades={tradeRecords} onSave={savePlaybooks} />}
       {tab === 'reports' && <Insights key={selectedAccountId} trades={tradeRecords} onReview={openTradeReview} />}
+      {tab === 'discipline' && <DisciplinePanel key={selectedAccountId} store={store} accountId={selectedAccountId} onSave={async record=>{setStore(await saveLocalDiscipline(store,record));await refreshAutoBackups();}} onReview={openTradeReview} />}
+      {tab === 'risk' && <RiskPanel key={selectedAccountId} store={store} accountId={selectedAccountId} onSave={saveAccounts} />}
       {tab === 'accounts' && <Accounts trades={allTradeRecords} accounts={store.accounts || []} onSave={saveAccounts} onAssign={async (ids, accountId) => { setStore(await assignLocalTrades(store, ids, accountId)); await refreshAutoBackups(); }} />}
       {tab === 'daily' && <DailyEntryPanel entries={store.entries || []} onSave={(entry) => saveItem('entries', entry)} />}
       {tab === 'settings' && <SettingsPanel store={store} storageStatus={storageStatus} autoBackups={autoBackups} onExport={exportBackup} onImport={importBackup} onClear={clearJournal} onImportNotion={importNotion} onExportAutoBackup={exportAutoBackup} onRestoreAutoBackup={restoreAutoBackup} />}

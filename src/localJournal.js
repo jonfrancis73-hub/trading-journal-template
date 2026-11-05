@@ -1,3 +1,5 @@
+import { validateRisk, riskSettings } from './risk.js';
+import { RULES } from './discipline.js';
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { normalizeReviewStatus, normalizeTags } from './analytics.js';
 import { normalizeOutcome, normalizeRR, parseMoney } from './journalRules.js';
@@ -29,6 +31,7 @@ export const emptyLocalStore = {
   trades: [],
   entries: [],
   analyses: [],
+  discipline: [],
   settings: {
     appName: 'Trading Journal Template',
     createdAt: new Date().toISOString(),
@@ -91,6 +94,7 @@ async function deleteKey(key) {
 
 export function normalizeStore(store = {}) {
   store = migrateAccounts(clone(store));
+  store.accounts.forEach(a => { if (a.risk) validateRisk(riskSettings(a)); });
   return {
     ...clone(emptyLocalStore),
     ...clone(store),
@@ -101,6 +105,7 @@ export function normalizeStore(store = {}) {
     trades: Array.isArray(store.trades) ? store.trades : [],
     entries: Array.isArray(store.entries) ? store.entries : [],
     analyses: Array.isArray(store.analyses) ? store.analyses : [],
+    discipline: normalizeDiscipline(store.discipline || [], store.accounts),
   };
 }
 
@@ -221,9 +226,24 @@ export async function deleteLocalTrade(store, tradeId) {
   return writeLocalStore({ ...current, trades: current.trades.filter((trade) => trade.id !== tradeId) }, { reason: 'trade_deleted' });
 }
 
+function normalizeDiscipline(records, accounts) {
+  if (!Array.isArray(records) || records.length > 5000) throw new Error('Invalid discipline records.');
+  const keys = new Set();
+  return records.map(r => {
+    const key = `${r.accountId}:${r.date}`;
+    if (!r.id || keys.has(key) || !accounts.some(a=>a.id===r.accountId) || !/^\d{4}-\d{2}-\d{2}$/.test(r.date) || new Date(`${r.date}T12:00:00Z`).toISOString().slice(0,10)!==r.date || !r.answers || typeof r.answers !== 'object' || Object.entries(r.answers).some(([id,v])=>!RULES.some(rule=>rule[0]===id)||!['','yes','no','na'].includes(v)) || typeof r.notes !== 'string') throw new Error('Invalid or duplicate discipline record.');
+    keys.add(key); return r;
+  });
+}
+export async function saveLocalDiscipline(store, record) {
+  const current=normalizeStore(store);
+  const previous=current.discipline.find(r=>r.accountId===record.accountId&&r.date===record.date);
+  const next={...record,id:previous?.id||`discipline:${record.accountId}:${record.date}`};
+  return writeLocalStore({...current,discipline:[...current.discipline.filter(r=>r.id!==next.id),next]}, {reason:'discipline_saved'});
+}
 export async function saveLocalAccounts(store, accounts = []) {
   const current = normalizeStore(store);
-  const next = accounts.map(account => ({ ...account, name: String(account.name || '').trim(), id: account.id || id('account'), startingBalance: Number(account.startingBalance), archived: Boolean(account.archived) }));
+  const next = accounts.map(account => ({ ...account, ...(account.risk ? {risk: validateRisk(riskSettings(account))} : {}), name: String(account.name || '').trim(), id: account.id || id('account'), startingBalance: Number(account.startingBalance), archived: Boolean(account.archived) }));
   if (next.some(a => !a.name || !Number.isFinite(a.startingBalance) || a.startingBalance < 0)) throw new Error('Every account needs a name and a valid non-negative initial balance.');
   if (new Set(next.map(a => a.id)).size !== next.length) throw new Error('Account IDs must be unique.');
   if (current.accounts.some(a => !next.some(n => n.id === a.id))) throw new Error('Archive accounts instead of deleting them.');
@@ -377,7 +397,7 @@ export async function importLocalBackup(file) {
   const manifest = JSON.parse(strFromU8(entries['manifest.json']));
   const incoming = normalizeStore(manifest.store || manifest);
   validateBackupStore(incoming);
-  for (const collection of ['accounts', 'trades', 'entries', 'analyses', 'playbooks']) {
+  for (const collection of ['accounts', 'trades', 'entries', 'analyses', 'playbooks', 'discipline']) {
     const ids = incoming[collection].map(item => item.id).filter(Boolean);
     if (new Set(ids).size !== ids.length) throw new Error(`Backup contains duplicate ${collection} identifiers. Nothing was imported.`);
   }
@@ -411,7 +431,7 @@ function validateBackupStore(store) {
 export function mergeBackupStores(currentStore, importedStore) {
   const current = normalizeStore(currentStore);
   const incoming = normalizeStore(importedStore);
-  const isFresh = ['trades', 'entries', 'analyses', 'playbooks'].every(key => !current[key].length)
+  const isFresh = ['trades', 'entries', 'analyses', 'playbooks', 'discipline'].every(key => !current[key].length)
     && current.accounts.length === 1 && current.accounts[0].id === 'personal'
     && current.accounts[0].name === 'Personal' && !Number(current.accounts[0].startingBalance) && !current.accounts[0].archived;
   const canonical = value => JSON.stringify(value, (key, item) => {
@@ -434,6 +454,7 @@ export function mergeBackupStores(currentStore, importedStore) {
     trades: mergeById(current.trades, incoming.trades),
     entries: mergeById(current.entries, incoming.entries),
     analyses: mergeById(current.analyses, incoming.analyses),
+    discipline: mergeById(current.discipline, incoming.discipline),
     profile: isFresh ? incoming.profile : current.profile,
     settings: { ...(isFresh ? incoming.settings : current.settings), importedAt: new Date().toISOString() },
   };
