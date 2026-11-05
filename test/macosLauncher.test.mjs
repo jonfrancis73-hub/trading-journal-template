@@ -6,9 +6,21 @@ import path from 'node:path';
 import http from 'node:http';
 import { spawn } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
-import { validateProject, URL } from '../macos/launcher.mjs';
+import { validateProject, URL, openBraveBrowser } from '../macos/launcher.mjs';
 
 const delay = ms => new Promise(r => setTimeout(r, ms));
+
+test('opens Brave directly at the exact origin using the normal profile', () => {
+  let calls = 0;
+  openBraveBrowser(URL, (executable, args, options) => {
+    calls++;
+    assert.equal(executable, '/usr/bin/open');
+    assert.deepEqual(args, ['-a', 'Brave Browser', 'http://127.0.0.1:5176']);
+    assert.deepEqual(options, { stdio: 'pipe' });
+  });
+  assert.equal(calls, 1);
+  assert.throws(() => openBraveBrowser(URL, () => { throw new Error('application not found'); }), /application not found/);
+});
 
 test('launcher recognizes this project and rejects unrelated/missing folders', () => {
   assert.equal(validateProject(process.cwd()), true);
@@ -38,7 +50,7 @@ test('portable launcher lifecycle: concurrent cold starts, reuse, stop, restart 
   const moduleURL = pathToFileURL(path.join(helper, 'launcher.mjs')).href;
   async function command(action, browserFails = false) {
     return new Promise(resolve => {
-      const code = `import {run} from ${JSON.stringify(moduleURL)}; run(${JSON.stringify(action)},url=>{if(${browserFails})throw Error('missing Chrome');console.log('CHROME '+url)}).catch(e=>{console.error(e.message);process.exitCode=1});`;
+      const code = `import {run} from ${JSON.stringify(moduleURL)}; run(${JSON.stringify(action)},url=>{if(${browserFails})throw Error('missing Brave');console.log('BRAVE '+url)}).catch(e=>{console.error(e.message);process.exitCode=1});`;
       const child = spawn(process.execPath, ['--input-type=module', '-e', code], { env: { ...process.env, HOME: temp }, stdio: ['ignore', 'pipe', 'pipe'] });
       let output = '';
       child.stdout.on('data', data => { output += data; });
@@ -63,10 +75,10 @@ test('portable launcher lifecycle: concurrent cold starts, reuse, stop, restart 
       assert.match((await command('stop')).output, /outside the launcher/);
       assert.equal(manual.listening, true);
       assert.equal(fs.existsSync(count), false);
-      assert.match((await command('start', true)).output, /Google Chrome could not be opened/);
+      assert.match((await command('start', true)).output, /Brave Browser could not be opened/);
     } finally { await new Promise(resolve => manual.close(resolve)); }
     const results = await Promise.all([command('start'), command('start'), command('start')]);
-    for (const result of results) { assert.equal(result.code, 0, result.output); assert.match(result.output, /CHROME http:\/\/127\.0\.0\.1:5176/); }
+    for (const result of results) { assert.equal(result.code, 0, result.output); assert.match(result.output, /BRAVE http:\/\/127\.0\.0\.1:5176/); }
     assert.equal(fs.readFileSync(count, 'utf8').trim().split('\n').length, 1);
     assert.equal((await command('start')).code, 0);
     assert.equal(fs.readFileSync(count, 'utf8').trim().split('\n').length, 1);

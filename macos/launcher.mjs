@@ -104,7 +104,7 @@ async function supervisor() {
   }
 }
 
-async function start(openChrome) {
+async function start(openBrave) {
   // Reuse an already-running journal even if Node dependencies were moved.
   const current = await probe();
   if (current === 'other') throw new Error('Port 5176 is occupied but is not responding as the trading journal. Stop the other application and try again. The launcher will never switch ports.');
@@ -146,19 +146,25 @@ async function start(openChrome) {
       }
     } finally { if (ownsLock) fs.rmdirSync(startLock); }
   }
-  try { openChrome(URL); }
-  catch { throw new Error(`Google Chrome could not be opened. Install or open Google Chrome, select your usual journal profile, and visit ${URL}.`); }
+  try { openBrave(URL); }
+  catch { throw new Error(`Brave Browser could not be opened. Install Brave Browser from https://brave.com/download/ if it is missing, or open Brave and select your usual journal profile, and visit ${URL}.`); }
 }
 
-export async function run(action, openChrome = url => execFileSync('/usr/bin/open', ['-a', 'Google Chrome', url], { stdio: 'pipe' })) {
+// LaunchServices targets Brave explicitly and reuses its normal active/last-used profile.
+// Do not add private, profile-directory, user-data-dir or new-instance flags.
+export function openBraveBrowser(url, execute = execFileSync) {
+  execute('/usr/bin/open', ['-a', 'Brave Browser', url], { stdio: 'pipe' });
+}
+
+export async function run(action, openBrave = openBraveBrowser) {
   fs.mkdirSync(socketDir, { recursive: true, mode: 0o700 });
   const stat = fs.lstatSync(socketDir);
   if (!stat.isDirectory() || stat.isSymbolicLink() || stat.uid !== process.getuid()) throw new Error('Launcher control folder has an unexpected owner. Restart your Mac and try again.');
   fs.chmodSync(socketDir, 0o700);
   if (action === 'supervise') return supervisor();
-  if (action === 'start') return start(openChrome);
+  if (action === 'start') return start(openBrave);
   if (action !== 'stop') throw new Error('Unknown launcher action.');
-  try { await control('stop'); console.log('Journal server stopped. Saved browser records remain in Chrome.'); }
+  try { await control('stop'); console.log('Journal server stopped. Saved browser records remain in your browser.'); }
   catch (error) {
     if (!['ENOENT', 'ECONNREFUSED'].includes(error.code)) throw error;
     console.log(await probe() === 'journal' ? 'This journal was started outside the launcher. Stop it with Control-C in its original Terminal window.' : 'The launcher is already stopped.');

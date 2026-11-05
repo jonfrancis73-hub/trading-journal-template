@@ -5,7 +5,7 @@ if [ "$(uname -s)" != Darwin ]; then echo 'This installer requires macOS.' >&2; 
 source_dir="$(cd "$(dirname "$0")" && pwd)"
 support="$HOME/Library/Application Support/Trading Journal Launcher"
 default_project="$HOME/Documents/trading-journal-template"
-echo 'This installs launch shortcuts only. It does not replace your journal or change Chrome data.'
+echo 'This installs launch shortcuts only. It does not replace your journal or change Brave data.'
 if [ -f "$default_project/package.json" ] && [ -f "$default_project/scripts/dev.mjs" ]; then
   project="$default_project"
 else
