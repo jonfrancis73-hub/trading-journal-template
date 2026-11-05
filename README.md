@@ -39,6 +39,10 @@ Open:
 http://127.0.0.1:5176
 ```
 
+## One-click Mac launcher
+
+Already running the journal on your Mac? Install the native **Trading Journal** and **Stop Trading Journal** apps without replacing your working journal folder. See the [beginner-friendly Download ZIP instructions](docs/MAC_LAUNCHER.md). The launcher keeps `http://127.0.0.1:5176` and opens normal Google Chrome; keep using your original Chrome profile.
+
 ## Optional Notion Import
 
 Notion is optional. The app works without it.
