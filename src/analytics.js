@@ -31,7 +31,7 @@ function tradeTags(trade, camelKey, snakeKey) {
 }
 
 export function isCountableTrade(trade = {}) {
-  return ['Win', 'Loss', 'BE'].includes(normalizeOutcome(trade));
+  return trade.realised !== false && ['Win', 'Loss', 'BE'].includes(normalizeOutcome(trade));
 }
 
 export function filterTrades(trades = [], filters = {}) {

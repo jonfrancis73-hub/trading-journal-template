@@ -16,12 +16,12 @@ export function inSession(time, risk) {
 }
 export function sessionNow(account, now = new Date()) {
   const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(now);
-  return inSession(parts, riskSettings(account));
+  return inSession(parts, DEFAULT_RISK);
 }
 export function tradeSession(trade, account) {
   if (!executed(trade)) return null;
   // Recorded execution time is explicitly UK wall time, never journal creation time.
-  return inSession(trade.entryTime, riskSettings(account));
+  return inSession(trade.entryTime, DEFAULT_RISK);
 }
 export function dailyRisk(trades, account, date = localDay()) {
   const risk = riskSettings(account);
@@ -29,12 +29,14 @@ export function dailyRisk(trades, account, date = localDay()) {
   const realised = rows.filter(t => t.realised !== false);
   const pnl = Math.round(realised.reduce((s,t) => s + parseMoney(t.pnl),0)*100)/100;
   const ordered = realised.filter(t=>/^([01]\d|2[0-3]):[0-5]\d$/.test(t.exitTime || '')).slice().sort((a,b)=>a.exitTime.localeCompare(b.exitTime));
-  const chronologyKnown = ordered.length === realised.length && new Set(ordered.map(t=>t.exitTime)).size === ordered.length;
-  let running=0, reached=false, continued=0;
-  if (chronologyKnown) for (const t of ordered) { if (reached) continued++; running=Math.round((running+parseMoney(t.pnl))*100)/100; if(running<=-risk.dailyLossLimit) reached=true; }
+  const amountsKnown=realised.every(t=>String(t.pnl??'').replace(/[$,+\s]/g,'')!==''&&Number.isFinite(Number(String(t.pnl).replace(/[$,+\s]/g,''))));
+  const chronologyKnown = realised.length > 0 && amountsKnown && ordered.length === realised.length && new Set(ordered.map(t=>t.exitTime)).size === ordered.length;
+  let running=0, reached=false, continued=0, peakLoss=0;
+  if (chronologyKnown) for (const t of ordered) { if (reached) continued++; running=Math.round((running+parseMoney(t.pnl))*100)/100; peakLoss=Math.max(peakLoss,-running); if(running<=-risk.dailyLossLimit) reached=true; }
   const outside = rows.filter(t => tradeSession(t,account) === false);
   const unknown = rows.filter(t => tradeSession(t,account) === null);
-  return { date, pnl, reached: reached || pnl <= -risk.dailyLossLimit, continued, chronologyKnown, count: rows.length, remaining: Math.max(0, risk.dailyLossLimit+pnl), outside, unknown, status: pnl <= -risk.dailyLossLimit ? 'breached' : pnl <= -risk.dailyLossLimit*0.8 ? 'approaching' : 'within', risk };
+  const confirmedHit=reached || (amountsKnown&&pnl<=-risk.dailyLossLimit);
+  return { date, pnl, amountsKnown, peakLoss:Math.max(peakLoss,-pnl,0), historyStatus: confirmedHit ? 'breached' : chronologyKnown ? 'within' : 'unknown', reached: confirmedHit, continued, chronologyKnown, count: rows.length, remaining: Math.max(0, risk.dailyLossLimit+pnl), outside, unknown, status: pnl <= -risk.dailyLossLimit ? 'breached' : pnl <= -risk.dailyLossLimit*0.8 ? 'approaching' : 'within', risk };
 }
 export function riskHistory(trades, account) {
   return [...new Set(trades.filter(t=>t.accountId===account.id).map(t=>t.date))].filter(Boolean).sort().map(date=>dailyRisk(trades,account,date));

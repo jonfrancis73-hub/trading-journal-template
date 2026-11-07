@@ -124,8 +124,12 @@ This template is source-available for personal use. See `LICENSE`.
 
 ## Risk management and discipline (Phases 3–4)
 
-Select an individual account, then open **Risk Management** or **Discipline**. Defaults are a $500 daily net realised-loss limit and 07:30–12:00 UK session (start included, noon excluded). Settings are per account. Enter P&L **after all fees and commissions**, use the result's local calendar date, and record actual UK execution times. Open/unrealised results can be excluded from risk totals. Missing times remain unknown. Daily limits reset at this computer's local midnight; UK session status follows daylight saving automatically.
+Select an individual account, then open **Risk Management** or **Discipline**. Daily net realised-loss limits default to $500 per account. The fixed session is 07:30–12:00 UK time (start included, noon excluded); hidden legacy session settings are preserved. Enter P&L **after all fees and commissions**, use the result's local calendar date, and record actual UK execution times. Open/unrealised results can be excluded from risk totals. Missing times remain unknown. Daily limits reset at this computer's local midnight; UK session status follows daylight saving automatically.
 
 Discipline has separate before/after checklists and reflections for every account/day. Only Yes/No answers enter percentages; N/A is excluded, unanswered questions remain incomplete, and all-N/A days do not count as compliant. Recorded trade days without a checklist appear as incomplete and break compliance streaks. Streaks count consecutive recorded days, not calendar days. Historical risk reviews use current settings. This manually updated journal cannot block broker orders or detect unrecorded trades.
 
 ZIP exports and rolling automatic backups include all accounts, risk settings and discipline records. Conflicting imports stop without overwriting current records. Use `npm run test:risk-discipline` for synthetic browser checks alongside the existing test commands. See [Mac ZIP installation](docs/MAC_SETUP.md#download-zip-installation-for-the-complete-application).
+
+## Dashboard, multi-account capture and checklist update
+
+See [the complete update guide](docs/EXPERIENCE_UPDATE.md) for the safe Download ZIP update using your existing Mac launcher, multi-account trade capture, original Empra Score formula, historical risk statuses, and verification commands.

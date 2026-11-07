@@ -1,4 +1,4 @@
-import { chromium } from '@playwright/test';
+import { chromium, expect } from '@playwright/test';
 import { spawn } from 'node:child_process';
 
 const port = process.env.HEAVY_STRESS_PORT || '5196';
@@ -8,7 +8,7 @@ const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1H
 
 function startServer() {
   if (process.env.HEAVY_STRESS_BASE_URL) return null;
-  const child = spawn('npx', ['vite', '--host', '127.0.0.1', '--port', port], {
+  const child = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', port], {
     cwd: process.cwd(),
     stdio: 'pipe',
     shell: false,
@@ -117,11 +117,11 @@ async function assertNoOverflow(page, label) {
 }
 
 const server = startServer();
-const browser = await chromium.launch();
+const browser = await chromium.launch({executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH||undefined,args:['--no-sandbox']});
 const errors = [];
 const page = await browser.newPage({ viewport: { width: 1440, height: 1100 }, acceptDownloads: true });
 page.on('console', (message) => {
-  if (['error', 'warning'].includes(message.type())) errors.push(`${message.type()}: ${message.text()}`);
+  if (['error', 'warning'].includes(message.type())) errors.push(`${message.type()}: ${message.text()} ${message.location().url}`);
 });
 page.on('pageerror', (error) => errors.push(`pageerror: ${error.message}`));
 
@@ -136,6 +136,12 @@ try {
     await assertNoOverflow(page, route);
     if (elapsed > 5000) throw new Error(`${route} loaded too slowly: ${elapsed}ms.`);
   }
+
+  await page.goto(`${baseUrl}/app/log`);
+  await expect(page.locator('.trade-card')).toHaveCount(Math.min(50,tradeCount));
+  if(tradeCount>50){await page.getByRole('button',{name:'Load more trades',exact:true}).click();await expect(page.locator('.trade-card')).toHaveCount(Math.min(100,tradeCount));}
+  await page.getByPlaceholder('Search trades').fill('no-synthetic-match');await expect(page.locator('.trade-card')).toHaveCount(0);
+  await page.getByPlaceholder('Search trades').fill('');await expect(page.locator('.trade-card')).toHaveCount(Math.min(50,tradeCount));
 
   await page.goto(`${baseUrl}/app/settings`, { waitUntil: 'domcontentloaded', timeout: 15000 });
   const download = await Promise.all([

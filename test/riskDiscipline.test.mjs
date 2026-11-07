@@ -13,11 +13,11 @@ test('net cumulative loss includes profits, is independent and excludes unrealis
  assert.equal(dailyRisk(trades,a,'2026-11-05').pnl,0);
 });
 test('local midnight reset uses local calendar fields, not UTC',()=>{assert.equal(localDay(new Date(2026,10,4,23,59,59)),'2026-11-04');assert.equal(localDay(new Date(2026,10,5,0,0,0)),'2026-11-05');});
-test('UK session boundaries, winter/summer daylight saving, unknown and account-specific settings',()=>{
+test('UK session boundaries, winter/summer daylight saving, unknown and fixed UK session',()=>{
  for(const [time,want] of [['07:29',false],['07:30',true],['11:59',true],['12:00',false],['',null]]) assert.equal(tradeSession(trade('t',0,{entryTime:time}),a),want);
  assert.equal(sessionNow(a,new Date('2026-07-01T06:30:00Z')),true);assert.equal(sessionNow(a,new Date('2026-01-01T07:29:00Z')),false);
  assert.equal(sessionNow(a,new Date('2026-07-01T11:00:00Z')),false);
- assert.equal(tradeSession(trade('t',0),{...b,risk:{sessionStart:'09:00',sessionEnd:'10:00'}}),false);
+ assert.equal(tradeSession(trade('t',0),{...b,risk:{sessionStart:'09:00',sessionEnd:'10:00'}}),true);
  assert.throws(()=>validateRisk({dailyLossLimit:-1,sessionStart:'07:30',sessionEnd:'12:00'}));
  assert.throws(()=>validateRisk({dailyLossLimit:500,sessionStart:'12:00',sessionEnd:'07:30'}));
 });

@@ -1,11 +1,10 @@
 import { dailyRisk, executed } from './risk.js';
 export const RULES = [
- ['deskBefore','Before','Am I trading from my desk rather than from bed?'],
+ ['deskBefore','Before','Am I trading from my desk?'],
  ['reviewed','Before','Have I reviewed my trading rules?'],
  ['prepared','Before','Am I emotionally prepared to trade?'],
- ['accountConfirmed','Before','Have I confirmed which funded account I am trading?'],
  ['sessionChecked','Before','Am I within my permitted trading session?'],
- ['lossChecked','Before','Is this account still within its daily loss limit?'],
+ ['lossChecked','Before','Have I confirmed risk sizing relative to account P&L?'],
  ['stopped','After','Did I stop trading after reaching this account’s daily realised-loss limit?'],
  ['sessionFollowed','After','Did I only execute trades within my permitted trading hours?'],
  ['deskAfter','After','Did I trade from my desk?'],
@@ -24,7 +23,7 @@ export function disciplineAnalytics(records, trades, account, through='9999-12-3
  const dates=[...new Set([...own.map(r=>r.date),...trades.filter(t=>t.accountId===account.id&&executed(t)&&t.date<=through).map(t=>t.date)])].sort();
  const days=dates.map(date=>{const record=own.find(r=>r.date===date);return {date,record,...checklistStats(record),pnl:dailyRisk(trades,account,date).pnl};});
  const applicable=days.reduce((s,d)=>s+d.applicable,0),yes=days.reduce((s,d)=>s+d.yes,0);
- const rules=RULES.map(([id,,label])=>{const values=own.map(r=>r.answers?.[id]).filter(v=>v==='yes'||v==='no');const broken=values.filter(v=>v==='no').length;return {id,label,broken,answered:values.length,percent:values.length?(values.length-broken)/values.length*100:null};});
+ const rules=RULES.map(([id,,label])=>{const values=own.map(r=>r.answers?.[id]).filter(v=>v==='yes'||v==='no');const broken=values.filter(v=>v==='no').length;const na=own.filter(r=>r.answers?.[id]==='na').length;return {id,label,broken,yes:values.length-broken,na,unanswered:own.length-values.length-na,total:values.length+na,answered:values.length,percent:values.length?(values.length-broken)/values.length*100:null};});
  let streak=0,best=0;for(const d of days){streak=d.compliant?streak+1:0;best=Math.max(best,streak);}
  const group=predicate=>{const rows=days.filter(predicate);return {days:rows.length,pnl:rows.reduce((s,d)=>s+d.pnl,0),average:rows.length?rows.reduce((s,d)=>s+d.pnl,0)/rows.length:null};};
  return {days,rules,percent:applicable?yes/applicable*100:null,fullyCompliant:days.filter(d=>d.compliant).length,incomplete:days.filter(d=>!d.complete).length,streak,best,compliant:group(d=>d.compliant),noncompliant:group(d=>d.complete&&d.applicable>0&&!d.compliant)};
