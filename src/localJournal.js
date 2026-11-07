@@ -2,7 +2,7 @@ import { validateRisk, riskSettings } from './risk.js';
 import { RULES } from './discipline.js';
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { normalizeReviewStatus, normalizeTags } from './analytics.js';
-import { normalizeOutcome, normalizeRR, parseMoney } from './journalRules.js';
+import { buildJournalDraft, normalizeOutcome, normalizeRR, parseMoney } from './journalRules.js';
 
 export const MAX_LOCAL_SCREENSHOTS = 10;
 
@@ -157,8 +157,22 @@ export async function loadLocalStore() {
 
 export async function writeLocalStore(store, options = {}) {
   const next = normalizeStore(store);
-  await writeKey(STORE_KEY, next);
-  if (options.autoBackup !== false) await createLocalAutoBackup(next, options.reason || 'autosave');
+  if (options.autoBackup === false) await writeKey(STORE_KEY,next);
+  else {
+    const blob=await exportLocalBackup(next);
+    const backups=await readLocalAutoBackups();
+    const record={...backupSummary(next,blob,options.reason||'autosave'),blob};
+    const db=await openDb();
+    await new Promise((resolve,reject)=>{
+      const tx=db.transaction(STORE_NAME,'readwrite');
+      try {
+        tx.objectStore(STORE_NAME).put(next,STORE_KEY);
+        tx.objectStore(STORE_NAME).put([record,...backups].slice(0,MAX_AUTO_BACKUPS),AUTO_BACKUPS_KEY);
+      } catch(error) { tx.abort(); db.close(); reject(error); return; }
+      tx.oncomplete=()=>{db.close();resolve();};
+      tx.onabort=tx.onerror=()=>{db.close();reject(tx.error||new Error('Save failed. No records were changed.'));};
+    });
+  }
   return next;
 }
 
@@ -179,7 +193,7 @@ export function choosePrimaryScreenshotId(screenshots = [], primaryScreenshotId 
     : screenshots.find((shot) => shot.kind !== 'news')?.id || screenshots[0]?.id || '';
 }
 
-export async function saveLocalTrade(store, trade) {
+export function prepareLocalTrade(store, trade) {
   const current = normalizeStore(store);
   const account = current.accounts.find(a => a.id === trade.accountId);
   const previous = current.trades.find(t => t.id === trade.id);
@@ -218,7 +232,34 @@ export async function saveLocalTrade(store, trade) {
   const trades = exists
     ? current.trades.map((item) => item.id === tradeId ? nextTrade : item)
     : current.trades.concat(nextTrade);
-  return writeLocalStore({ ...current, trades }, { reason: exists ? 'trade_updated' : 'trade_created' });
+  return { ...current, trades };
+}
+
+export async function saveLocalTrade(store, trade) {
+  return writeLocalStore(prepareLocalTrade(store, trade), { reason: trade.id ? 'trade_updated' : 'trade_created' });
+}
+
+// One whole-store transaction makes account executions and their recovery snapshot atomic.
+export function prepareAccountExecutions(store, shared, executions, submissionId) {
+  if (!submissionId || !executions.length || new Set(executions.map(e=>e.accountId)).size!==executions.length) throw new Error('Select distinct active accounts.');
+  if (store.trades.some(t=>t.submissionId===submissionId)) return normalizeStore(store);
+  let next=normalizeStore(store);
+  for (const execution of executions) {
+    if (!String(execution.pnl ?? '').replace(/[$,+\s]/g,'') || !Number.isFinite(Number(String(execution.pnl).replace(/[$,+\s]/g,'')))) throw new Error('Confirm net realised P&L for every account.');
+    if (!next.accounts.some(a=>a.id===execution.accountId&&!a.archived)) throw new Error('Select active accounts.');
+    const pnl=parseMoney(execution.pnl);
+    const outcome=['Missed','No Trade'].includes(shared.outcome)?shared.outcome:pnl>0?'Win':pnl<0?'Loss':'BE';
+    const row={...shared,...execution,id:id('trade'),submissionId,outcome};
+    const draft=buildJournalDraft(row,row.answers||{});
+    next=prepareLocalTrade(next,{...row,title:draft.title,sections:draft.sections});
+  }
+  return next;
+}
+export async function saveLocalTradeBatch(store, shared, executions, submissionId) {
+  const current=normalizeStore(await readKey(STORE_KEY) || store);
+  const next=prepareAccountExecutions(current,shared,executions,submissionId);
+  if(current.trades.some(t=>t.submissionId===submissionId)) return normalizeStore(current);
+  return writeLocalStore(next,{reason:'multi_account_trade_created'});
 }
 
 export async function deleteLocalTrade(store, tradeId) {
@@ -231,7 +272,7 @@ function normalizeDiscipline(records, accounts) {
   const keys = new Set();
   return records.map(r => {
     const key = `${r.accountId}:${r.date}`;
-    if (!r.id || keys.has(key) || !accounts.some(a=>a.id===r.accountId) || !/^\d{4}-\d{2}-\d{2}$/.test(r.date) || new Date(`${r.date}T12:00:00Z`).toISOString().slice(0,10)!==r.date || !r.answers || typeof r.answers !== 'object' || Object.entries(r.answers).some(([id,v])=>!RULES.some(rule=>rule[0]===id)||!['','yes','no','na'].includes(v)) || typeof r.notes !== 'string') throw new Error('Invalid or duplicate discipline record.');
+    if (!r.id || keys.has(key) || !accounts.some(a=>a.id===r.accountId) || !/^\d{4}-\d{2}-\d{2}$/.test(r.date) || new Date(`${r.date}T12:00:00Z`).toISOString().slice(0,10)!==r.date || !r.answers || typeof r.answers !== 'object' || Object.entries(r.answers).some(([id,v])=>!(id==='accountConfirmed'||RULES.some(rule=>rule[0]===id))||!['','yes','no','na'].includes(v)) || typeof r.notes !== 'string') throw new Error('Invalid or duplicate discipline record.');
     keys.add(key); return r;
   });
 }
@@ -480,7 +521,7 @@ function backupSummary(store, blob, reason) {
 }
 
 async function readLocalAutoBackups() {
-  const backups = await readKey(AUTO_BACKUPS_KEY).catch(() => []);
+  const backups = await readKey(AUTO_BACKUPS_KEY);
   return Array.isArray(backups) ? backups : [];
 }
 

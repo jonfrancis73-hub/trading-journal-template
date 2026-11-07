@@ -44,11 +44,11 @@ try {
   const metric = label => page.locator('.metric-card').filter({ has: page.locator('span', { hasText: label }) }).locator('strong');
   await page.getByLabel('View account').selectOption(ids.a);
   await expect(metric(/^Net P&L$/)).toHaveText('-$500');
-  await expect(metric('Today’s Realised P&L')).toHaveText('-$500');
-  await expect(metric('Account Balance')).toHaveText('+$49,500');
+  await expect(metric('Trade Expectancy')).toHaveText('-$500');
+  assert.equal(await page.evaluate(async id=>{const j=await import('/src/localJournal.js');const s=await j.loadLocalStore();return s.accounts.find(a=>a.id===id).startingBalance+s.trades.filter(t=>t.accountId===id).reduce((n,t)=>n+Number(t.pnl),0);},ids.a),49500);
   await page.getByLabel('View account').selectOption(ids.b);
   await expect(metric(/^Net P&L$/)).toHaveText('+$300');
-  await expect(metric('Today’s Realised P&L')).toHaveText('+$300');
+  await expect(metric('Trade Expectancy')).toHaveText('+$300');
   await page.getByLabel('View account').selectOption('');
   await expect(metric(/^Net P&L$/)).toHaveText('-$200');
   await page.getByRole('button', { name: 'Trade Log', exact: true }).click();

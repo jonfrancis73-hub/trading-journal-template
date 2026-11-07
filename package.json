@@ -16,7 +16,8 @@
     "stress": "node scripts/stress-check.mjs",
     "stress:browser": "node scripts/e2e-heavy-stress.mjs",
     "security:sweep": "node scripts/security-sweep.mjs",
-    "test:risk-discipline": "node scripts/e2e-risk-discipline.mjs"
+    "test:risk-discipline": "node scripts/e2e-risk-discipline.mjs",
+    "test:experience": "node scripts/e2e-experience.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "6.0.3",

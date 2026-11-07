@@ -1,3 +1,4 @@
+import { empraScore } from './empra.js';
 import DisciplinePanel from './DisciplinePanel.jsx';
 import { saveLocalDiscipline } from './localJournal.js';
 import RiskPanel from './RiskPanel.jsx';
@@ -61,6 +62,7 @@ import {
   saveLocalPlaybooks,
   saveLocalSettings,
   saveLocalTrade,
+  saveLocalTradeBatch,
   deleteLocalTrade,
 } from './localJournal.js';
 import {
@@ -136,18 +138,17 @@ const emptyTrade = () => ({
 
 const tabs = [
   { id: 'discipline', label: 'Discipline', Icon: ListChecks },
-  { id: 'risk', label: 'Risk Management', Icon: ClipboardCheck },
   { id: 'dashboard', label: 'Dashboard', Icon: LayoutDashboard },
-  { id: 'capture', label: 'Add Trade', Icon: Plus },
   { id: 'log', label: 'Trade Log', Icon: BookOpen },
-  { id: 'playbooks', label: 'Playbooks', Icon: ListChecks },
+  { id: 'capture', label: 'Add Trade', Icon: Plus },
   { id: 'reports', label: 'Analytics', Icon: BarChart3 },
+  { id: 'risk', label: 'Risk Management', Icon: Shield },
   { id: 'accounts', label: 'Accounts', Icon: WalletCards },
+  { id: 'playbooks', label: 'Playbooks', Icon: ListChecks },
   { id: 'daily', label: 'Daily Journal', Icon: CalendarDays },
   { id: 'settings', label: 'Settings', Icon: Settings },
 ];
-
-const visibleTabIds = new Set(['discipline', 'risk', 'dashboard', 'capture', 'log', 'reports', 'accounts']);
+const visibleTabIds = new Set(tabs.map(t=>t.id));
 
 const defaultTradingRules = [
   'Mark draw on liquidity before entry',
@@ -676,64 +677,45 @@ function TradingRulesPanel({ rules = [], onSave }) {
   );
 }
 
-function Dashboard({ trades, accounts, settings, setTab, onSaveSettings }) {
-  const stats = calculateAdvancedStats(trades);
-  const latest = trades.slice(0, 3);
-  const summaries = accountSummaries(trades, accounts).slice(0, 3);
-
-  return (
-    <div className="screen-grid">
-      <section className="hero-panel">
-        <div>
-          <span className="eyebrow">Local Trading Journal</span>
-          <h1>Trading Journal Template</h1>
-          <p>Capture trades, review patterns, and keep the clean version ready for your journal.</p>
-        </div>
-        <div className="hero-actions">
-          <button className="primary" type="button" onClick={() => setTab('capture')}><Plus size={18} /> Add Trade</button>
-        </div>
-      </section>
-
-      <section className="metrics-grid">
-        <StatCard Icon={WalletCards} label="Account Balance" value={money(accounts.reduce((sum, a) => sum + Number(a.startingBalance || 0), 0) + stats.netPnl)} />
-        <StatCard Icon={Database} label="Today’s Realised P&L" value={money(calculateAdvancedStats(trades.filter(t => t.date === new Date().toLocaleDateString('en-CA'))).netPnl)} />
-        <StatCard Icon={BarChart3} label="Average Win" value={money(stats.averageWin)} />
-        <StatCard Icon={BarChart3} label="Average Loss" value={money(stats.averageLoss)} />
-        <StatCard Icon={Database} label="Net P&L" value={money(stats.netPnl)} tone={stats.netPnl >= 0 ? 'green' : 'red'} />
-        <StatCard Icon={Target} label="Win Rate" value={pct(stats.winRate)} sub={`${stats.wins}W / ${stats.losses}L / ${stats.breakeven}BE`} />
-        <StatCard Icon={RefreshCcw} label="Avg RR" value={stats.avgRR.toFixed(2)} />
-        <StatCard Icon={BarChart3} label="Expectancy" value={money(stats.expectancy)} tone={stats.expectancy >= 0 ? 'green' : 'red'} />
-        <StatCard Icon={BarChart3} label="Profit Factor" value={Number.isFinite(stats.profitFactor) ? stats.profitFactor.toFixed(2) : '∞'} tone="green" />
-        <StatCard Icon={BarChart3} label="Max Drawdown" value={money(stats.maxDrawdown)} tone="red" />
-        <StatCard Icon={BookOpen} label="Total Trades" value={stats.totalTrades} />
-      </section>
-
-      <section className="account-strip">
-        {summaries.map((account) => (
-          <button className="account-card" key={account.id} type="button" onClick={() => setTab('accounts')}>
-            <span><WalletCards size={16} /> {account.name}</span>
-            <strong>{money(account.currentBalance)}</strong>
-            <small>{account.trades} trades · {money(account.stats.netPnl)} net</small>
-          </button>
-        ))}
-      </section>
-
-      <div className="dashboard-grid">
-        <MiniChart trades={trades} />
-        <aside className="side-stack">
-          <TradingRulesPanel
-            rules={settings?.tradingRules || []}
-            onSave={(tradingRules) => onSaveSettings({ tradingRules })}
-          />
-        </aside>
-      </div>
-
-      <section className="panel">
-        <div className="panel-head"><h2>Recent Trades</h2><button className="link-button" onClick={() => setTab('log')}>Open Log</button></div>
-        <div className="trade-row-grid">{latest.map((trade) => <TradeCard key={trade.id} trade={trade} />)}</div>
-      </section>
+function Dashboard({ trades, accounts, settings, setTab, onSaveSettings, onReview }) {
+  const realised=trades.filter(t=>t.realised!==false);
+  const {stats,components,score}=empraScore(realised);
+  const latest=trades.slice().sort((a,b)=>`${b.date}${b.createdAt||''}`.localeCompare(`${a.date}${a.createdAt||''}`)).slice(0,5);
+  const days=calendarStats(realised).slice().sort((a,b)=>a.date.localeCompare(b.date));
+  const max=Math.max(1,...days.map(d=>Math.abs(d.netPnl)));
+  return <div className="screen-grid empra-dashboard">
+    <section className="dashboard-welcome"><div><span className="eyebrow">YOUR PERFORMANCE, IN PERSPECTIVE</span><h1>Every trade tells a story.</h1><p>Review your edge. Build your consistency.</p></div><span className="local-badge"><span/> Local journal · {stats.totalTrades} executions</span></section>
+    <section className="metrics-grid performance-cards">
+      <StatCard Icon={WalletCards} label="Net P&L" value={money(stats.netPnl)} tone={stats.netPnl>=0?'green':'red'} />
+      <StatCard Icon={LineChart} label="Trade Expectancy" value={stats.totalTrades?money(stats.expectancy):'—'} />
+      <StatCard Icon={BarChart3} label="Profit Factor" value={stats.totalTrades?(Number.isFinite(stats.profitFactor)?stats.profitFactor.toFixed(2):'∞'):'—'} />
+      <StatCard Icon={Target} label="Win Rate" value={stats.decidedTrades?pct(stats.winRate):'—'} sub={`${stats.wins} wins · ${stats.losses} losses`} />
+      <StatCard Icon={RefreshCcw} label="Average Win / Loss Ratio" value={stats.losses?stats.payoffRatio.toFixed(2):'—'} />
+    </section>
+    <div className="empra-charts">
+      <section className="panel score-panel"><div className="panel-head"><h2>Empra Score</h2><Target size={18}/></div><div className="score-value">{score===null?'—':score}<small>/ 100</small></div><p>{score===null?'Not enough data':'A balanced view of your trading edge'}</p><svg viewBox="0 0 240 185" role="img" aria-label="Empra score component radar"><polygon points="120,15 220,165 20,165" fill="none" stroke="#393047"/><polygon points="120,50 185,148 55,148" fill="none" stroke="#393047"/><polygon points={components.map((v,i)=>{const p=[[120,15],[220,165],[20,165]][i];return `${120+(p[0]-120)*v/100},${115+(p[1]-115)*v/100}`;}).join(' ')} fill="#a78bfa44" stroke="#b59af8" strokeWidth="2"/></svg><div className="score-components">{['Win rate','Profit factor','Win/loss ratio'].map((label,i)=><span key={label}>{label}<strong>{stats.totalTrades?components[i].toFixed(0)+'%':'—'}</strong></span>)}</div><details><summary>How is this calculated?</summary><p>Minimum 20 realised executions, including 3 wins and 3 losses. Equal average of win rate, profit factor ÷ 2 and average win/loss ratio ÷ 2; each component capped at 100%. An original journal score.</p></details></section>
+      <section className="panel cumulative-panel"><h2>Daily Cumulative Net P&L</h2><MiniChart trades={realised}/>{!days.length&&<p className="muted">No realised trades yet.</p>}</section>
+      <section className="panel daily-pnl-panel"><h2>Net Daily P&L</h2>{days.length?<div className="daily-bars">{days.map(d=><button key={d.date} aria-label={`${d.date}: ${money(d.netPnl)}`} title={`${d.date}: ${money(d.netPnl)}`} onClick={()=>setTab('reports')}><span className={d.netPnl>=0?'positive-bar':'negative-bar'} style={{height:`${Math.max(2,Math.abs(d.netPnl)/max*46)}%`,[d.netPnl>=0?'bottom':'top']:'50%'}}/><small>{d.date.slice(5)}</small></button>)}</div>:<div className="chart-empty">No realised trades yet.<br/>Your daily results will appear here.</div>}<div className="rule-legend"><span><i className="yes"/>Profit</span><span><i className="no"/>Loss</span></div></section>
     </div>
-  );
+    <div className="dashboard-bottom"><section className="panel"><div className="panel-head"><h2>Recent Trades</h2><button className="link-button" onClick={()=>setTab('log')}>View all →</button></div>{latest.length?latest.map(t=><button className="recent-execution" key={t.id} onClick={()=>onReview(t)}><span><strong>{t.asset}</strong><small>{t.date} · {t.account}</small></span><strong className={parseMoney(t.pnl)>=0?'green':'red'}>{money(parseMoney(t.pnl))}</strong></button>):<p className="chart-empty">Your first trade starts the story.<br/><button className="secondary" onClick={()=>setTab('capture')}>Add a trade</button></p>}</section><JournalCalendar trades={realised} onReview={onReview}/></div>
+    <details className="panel"><summary>More performance metrics</summary><section className="metrics-grid extended-metrics">
+      <StatCard Icon={WalletCards} label="Account Balance" value={money(accounts.reduce((sum,a)=>sum+Number(a.startingBalance||0),0)+stats.netPnl)}/>
+      <StatCard Icon={Database} label="Today’s Realised P&L" value={money(calculateAdvancedStats(realised.filter(t=>t.date===localDay())).netPnl)}/>
+      <StatCard Icon={BarChart3} label="Average Win" value={money(stats.averageWin)}/>
+      <StatCard Icon={BarChart3} label="Average Loss" value={money(stats.averageLoss)}/>
+      <StatCard Icon={RefreshCcw} label="Avg RR" value={stats.avgRR.toFixed(2)}/>
+      <StatCard Icon={BarChart3} label="Max Drawdown" value={money(stats.maxDrawdown)} tone="red"/>
+      <StatCard Icon={BookOpen} label="Total Trades" value={stats.totalTrades}/>
+    </section><section className="account-strip">{accountSummaries(realised,accounts).map(account=><button className="account-card" key={account.id} onClick={()=>setTab('accounts')}><span>{account.name}</span><strong>{money(account.currentBalance)}</strong><small>{account.trades} trades · {money(account.stats.netPnl)} net</small></button>)}</section></details>
+    <TradingRulesPanel rules={settings?.tradingRules||[]} onSave={tradingRules=>onSaveSettings({tradingRules})}/>
+  </div>;
+}
+
+function JournalCalendar({trades,onReview}) {
+ const [selectedMonth,setSelectedMonth]=useState(localDay().slice(0,7));
+ const [selectedDay,setSelectedDay]=useState('');
+ const days=calendarStats(trades.filter(t=>t.realised!==false));
+ return <TradingCalendar days={days} monthOptions={[]} selectedMonth={selectedMonth} selectedDay={selectedDay} dayTrades={trades.filter(t=>t.date===selectedDay&&t.realised!==false)} onMonthChange={m=>{setSelectedMonth(m);setSelectedDay('');}} onDayClick={setSelectedDay} onClearDay={()=>setSelectedDay('')} onReview={onReview}/>;
 }
 
 function playbookRuleList(value) {
@@ -914,6 +896,9 @@ function Capture({ onSaved, defaultAccountId, activeTrade, accounts = [], playbo
   const [selectedScreenshotId, setSelectedScreenshotId] = useState(activeTrade?.primaryScreenshotId || activeTrade?.screenshots?.[0]?.id || '');
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
+  const saveLock=useRef(false);
+  const submissionId=useRef(crypto.randomUUID());
+  const [executions,setExecutions]=useState({});
   const [phase, setPhase] = useState('ticket');
   const fileRef = useRef(null);
   const followups = useMemo(() => generateFollowups(trade.note, trade), [trade]);
@@ -928,6 +913,8 @@ function Capture({ onSaved, defaultAccountId, activeTrade, accounts = [], playbo
   ), [screenshots, selectedScreenshotId, trade.primaryScreenshotId]);
 
   useEffect(() => {
+    setExecutions({});
+    submissionId.current=crypto.randomUUID();
     setTrade(activeTrade || { ...emptyTrade(), accountId: defaultAccountId || '' });
     setScreenshots(activeTrade?.screenshots || []);
     setSelectedScreenshotId(activeTrade?.primaryScreenshotId || activeTrade?.screenshots?.[0]?.id || '');
@@ -1026,11 +1013,13 @@ function Capture({ onSaved, defaultAccountId, activeTrade, accounts = [], playbo
   }
 
   async function save() {
+    if(saveLock.current) return;
     if (errors.length) {
       setMessage(errors[0]);
       setPhase(phaseForError(errors[0]));
       return;
     }
+    saveLock.current=true;
     setSaving(true);
     setMessage('');
     try {
@@ -1053,7 +1042,12 @@ function Capture({ onSaved, defaultAccountId, activeTrade, accounts = [], playbo
         answers,
         screenshots,
       };
-      await onSaveTrade(payload);
+      const selected=Object.entries(executions).filter(([id,e])=>e.selected&&id!==trade.accountId);
+      if(!activeTrade) {
+        await onSaveTrade(payload,[{accountId:trade.accountId,pnl:trade.pnl},...selected.map(([accountId,e])=>({accountId,pnl:e.pnl,entryTime:normalizeTimeInput(e.entryTime),exitTime:normalizeTimeInput(e.exitTime),actualExit:e.actualExit}))],submissionId.current);
+      } else await onSaveTrade(payload);
+      submissionId.current=crypto.randomUUID();
+      setExecutions({});
       setTrade(emptyTrade());
       setScreenshots([]);
       setAnswers({});
@@ -1061,6 +1055,7 @@ function Capture({ onSaved, defaultAccountId, activeTrade, accounts = [], playbo
     } catch (error) {
       setMessage(error.message);
     } finally {
+      saveLock.current=false;
       setSaving(false);
     }
   }
@@ -1110,6 +1105,7 @@ function Capture({ onSaved, defaultAccountId, activeTrade, accounts = [], playbo
           <Field label="Rating"><select value={trade.rating} onChange={(event) => update('rating', event.target.value)}>{RATINGS.map((item) => <option key={item}>{item}</option>)}</select></Field>
           <Field label="Emotion"><input value={trade.emotion || ''} onChange={(event) => update('emotion', event.target.value)} placeholder="Calm, rushed, patient..." /></Field>
         </div>}
+        {!activeTrade && (phase==='ticket'||phase==='review') && <fieldset className="execution-accounts"><legend>Account executions</legend><p>Primary account: {accounts.find(a=>a.id===trade.accountId)?.name||'Select above'} · net P&L {trade.pnl||'required'}. Add other accounts below. Enter each account’s actual net result; fees are already included.</p>{accounts.filter(a=>!a.archived&&a.id!==trade.accountId).map(a=><div className="execution-row" key={a.id}><label><input type="checkbox" checked={!!executions[a.id]?.selected} onChange={e=>setExecutions({...executions,[a.id]:{pnl:'',entryTime:trade.entryTime,exitTime:trade.exitTime,actualExit:trade.actualExit,...executions[a.id],selected:e.target.checked}})}/>{a.name}</label>{executions[a.id]?.selected&&<div className="form-grid">{[['pnl','Net P&L'],['entryTime','Entry time'],['exitTime','Exit time'],['actualExit','Actual exit']].map(([key,label])=><label key={key}>{label} · {a.name}<input aria-label={`${label} ${a.name}`} value={executions[a.id][key]||''} onChange={e=>setExecutions({...executions,[a.id]:{...executions[a.id],[key]:e.target.value}})}/></label>)}</div>}</div>)}</fieldset>}
         {phase === 'ticket' && (
           <p className="phase-hint">Start with the trade ticket only. Screenshots, notes, and the final review come next.</p>
         )}
@@ -1611,7 +1607,9 @@ function TradeDetailPage({ trade, playbooks = [], onBack, onEdit, onToggleReview
 
 function TradeLog({ trades, onDelete, onEdit, onToggleReview, onReview }) {
   const [query, setQuery] = useState('');
+  const [visibleCount,setVisibleCount]=useState(50);
   const [filter, setFilter] = useState('all');
+  useEffect(()=>setVisibleCount(50),[query,filter]);
   const [message, setMessage] = useState('');
   const [deletingId, setDeletingId] = useState('');
   const [togglingId, setTogglingId] = useState('');
@@ -1667,7 +1665,7 @@ function TradeLog({ trades, onDelete, onEdit, onToggleReview, onReview }) {
         </div>
       </div>
       {message && <Notice tone={/deleted|updated/i.test(message) ? 'success' : 'error'}>{message}</Notice>}
-      <div className="trade-row-grid">{visible.map((trade) => (
+      <div className="trade-row-grid">{visible.slice(0,visibleCount).map((trade) => (
         <TradeCard
           key={trade.id}
           trade={trade}
@@ -1679,50 +1677,14 @@ function TradeLog({ trades, onDelete, onEdit, onToggleReview, onReview }) {
           reviewBusy={togglingId === trade.id}
         />
       ))}</div>
+      {visible.length>50&&<div className="panel-head"><small>Showing {Math.min(visibleCount,visible.length)} of {visible.length} trades</small>{visibleCount<visible.length&&<button className="secondary" onClick={()=>setVisibleCount(n=>n+50)}>Load more trades</button>}</div>}
       {!visible.length && <p className="muted">No trades yet. Add one from Capture.</p>}
     </section>
   );
 }
 
-function Insights({ trades, onReview }) {
-  const [selectedDay, setSelectedDay] = useState('');
-  const [selectedMonth, setSelectedMonth] = useState('');
-  const filtered = trades;
-  const days = calendarStats(filtered);
-  const dayTrades = selectedDay ? filtered.filter((trade) => trade.date === selectedDay) : [];
-  const monthOptions = useMemo(() => unique(days.map((day) => String(day.date || '').slice(0, 7)).filter((item) => /^\d{4}-\d{2}$/u.test(item))).sort(), [days]);
-
-  useEffect(() => {
-    if (!monthOptions.length) return;
-    if (!selectedMonth || !monthOptions.includes(selectedMonth)) setSelectedMonth(monthOptions.at(-1));
-  }, [monthOptions, selectedMonth]);
-
-  function openDay(date) {
-    const tradesForDay = filtered.filter((trade) => trade.date === date);
-    if (tradesForDay.length === 1 && onReview) {
-      onReview(tradesForDay[0]);
-      return;
-    }
-    setSelectedDay(date);
-  }
-
-  return (
-    <div className="screen-grid">
-      <MiniChart trades={filtered} />
-
-      <TradingCalendar
-        days={days}
-        monthOptions={monthOptions}
-        selectedMonth={selectedMonth}
-        selectedDay={selectedDay}
-        dayTrades={dayTrades}
-        onMonthChange={(month) => { setSelectedMonth(month); setSelectedDay(''); }}
-        onDayClick={openDay}
-        onClearDay={() => setSelectedDay('')}
-        onReview={onReview}
-      />
-    </div>
-  );
+function Insights({trades,onReview}) {
+ return <div className="screen-grid"><MiniChart trades={trades.filter(t=>t.realised!==false)}/><JournalCalendar trades={trades} onReview={onReview}/></div>;
 }
 
 function TradingCalendar({ days, monthOptions, selectedMonth, selectedDay, dayTrades, onMonthChange, onDayClick, onClearDay, onReview }) {
@@ -1731,9 +1693,8 @@ function TradingCalendar({ days, monthOptions, selectedMonth, selectedDay, dayTr
   const monthDays = days.filter((day) => String(day.date || '').startsWith(activeMonth));
   const monthlyPnl = monthDays.reduce((sum, day) => sum + day.netPnl, 0);
   const monthlyTrades = monthDays.reduce((sum, day) => sum + day.trades, 0);
-  const currentIndex = monthOptions.indexOf(activeMonth);
-  const previousMonth = currentIndex > 0 ? monthOptions[currentIndex - 1] : '';
-  const nextMonth = currentIndex >= 0 && currentIndex < monthOptions.length - 1 ? monthOptions[currentIndex + 1] : '';
+  const shiftMonth=offset=>{const [y,m]=activeMonth.split('-').map(Number);const d=new Date(Date.UTC(y,m-1+offset,1));return d.toISOString().slice(0,7);};
+  const previousMonth=shiftMonth(-1), nextMonth=shiftMonth(1);
   const cells = calendarCells(activeMonth);
 
   return (
@@ -2354,6 +2315,13 @@ export default function App() {
 }
 
 function ProductionApp() {
+  useEffect(()=>{
+    const desktop=window.matchMedia('(min-width:851px)');
+    const ensureDesktop=()=>{const sidebar=document.querySelector('.sidebar');if(desktop.matches&&sidebar)sidebar.open=true;};
+    desktop.addEventListener('change',ensureDesktop);
+    return ()=>desktop.removeEventListener('change',ensureDesktop);
+  },[]);
+
   const [store, setStore] = useState(null);
   const [selectedAccountId, setSelectedAccountId] = useState('');
   const [message, setMessage] = useState('');
@@ -2363,6 +2331,14 @@ function ProductionApp() {
   const routerNavigate = useNavigate();
   const location = useLocation();
   const route = location.pathname || '/';
+  // Account changes can arrive while React Router is completing a review navigation.
+  useEffect(()=>{
+    if(!selectedAccountId||!route.startsWith('/app/trade/'))return;
+    const tradeId=decodeURIComponent(route.slice('/app/trade/'.length));
+    const reviewed=store?.trades.find(t=>t.id===tradeId);
+    if(reviewed&&reviewed.accountId!==selectedAccountId)routerNavigate('/app');
+  },[route,selectedAccountId,store,routerNavigate]);
+
 
   function navigate(path) {
     const next = appPath(path);
@@ -2439,9 +2415,11 @@ function ProductionApp() {
     await refreshAutoBackups();
   }
 
-  async function saveTrade(payload) {
+  async function saveTrade(payload, executions, submissionId) {
     setMessage('');
-    return saveLocalTrade(store, payload);
+    const next=executions?await saveLocalTradeBatch(store,payload,executions,submissionId):await saveLocalTrade(store,payload);
+    setStore(next);
+    return next;
   }
 
   async function exportBackup() {
@@ -2539,7 +2517,7 @@ function ProductionApp() {
   const openTradeReview = (trade) => navigate(`/app/trade/${encodeURIComponent(trade.id)}`);
 
   return (
-    <main className="app-shell">
+    <main className="app-shell journal-layout">
       <header className="topbar">
         <div className="brand-lockup">
           <span className="app-mark">TJ</span>
@@ -2549,17 +2527,16 @@ function ProductionApp() {
           <select aria-label="View account" value={selectedAccountId} onChange={event => { setSelectedAccountId(event.target.value); setEditingTrade(null); if (tab === 'trade-detail') setTab('dashboard'); }}><option value="">All Accounts</option>{(store.accounts || []).map(a => <option key={a.id} value={a.id}>{a.name}{a.archived ? ' (archived)' : ''}</option>)}</select>
           <button className="secondary" type="button" onClick={exportBackup}><Download size={16} /> Export Backup</button>
           <button className="primary" onClick={() => setTab('capture')}><Plus size={17} /> Add Trade</button>
-          <button className="secondary icon-only" type="button" aria-label="Settings" title="Settings" onClick={() => setTab('settings')}><Settings size={17} /></button>
         </div>
       </header>
 
-      <nav className="app-nav">
+      <details className="sidebar" open onToggle={e=>{if(window.innerWidth>850&&!e.currentTarget.open)e.currentTarget.open=true;}}><summary><Menu size={18}/> Navigation</summary><div className="sidebar-brand"><span className="app-mark">E</span><div>EMPRA<small>TRADING JOURNAL</small></div></div><nav className="app-nav" aria-label="Main navigation">
         {visibleAppTabs.map(({ id, label, Icon }) => (
-          <button key={id} className={tab === id || (tab === 'trade-detail' && id === 'log') ? 'active' : ''} onClick={() => setTab(id)}>
+          <button key={id} aria-current={tab===id||(tab==='trade-detail'&&id==='log')?'page':undefined} className={tab === id || (tab === 'trade-detail' && id === 'log') ? 'active' : ''} onClick={() => setTab(id)}>
             <Icon size={16} /> {label}
           </button>
         ))}
-      </nav>
+      </nav></details>
 
       {message && <Notice tone={/imported|exported|saved|deleted|cleared/i.test(message) ? 'success' : 'error'}>{message}</Notice>}
 
@@ -2571,7 +2548,7 @@ function ProductionApp() {
       )}
 
       {tab === 'not-found' && <section className="panel"><Notice tone="error">This app route does not exist.</Notice></section>}
-      {tab === 'dashboard' && <Dashboard key={selectedAccountId} trades={tradeRecords} accounts={selectedAccounts} settings={store.settings || {}} setTab={setTab} onSaveSettings={saveSettings} />}
+      {tab === 'dashboard' && <Dashboard key={selectedAccountId} trades={tradeRecords} accounts={selectedAccounts} settings={store.settings || {}} setTab={setTab} onSaveSettings={saveSettings} onReview={openTradeReview} />}
       {tab === 'capture' && <Capture key={selectedAccountId} defaultAccountId={selectedAccounts.length === 1 && !selectedAccounts[0].archived ? selectedAccounts[0].id : ""} activeTrade={editingTrade} accounts={store.accounts || []} playbooks={store.playbooks || []} onCancelEdit={() => setEditingTrade(null)} onSaveTrade={saveTrade} onSaved={async () => { setEditingTrade(null); await load(); setMessage('Trade saved.'); }} />}
       {tab === 'log' && <TradeLog trades={tradeRecords.map(t=>({...t, riskSession: tradeSession(t,store.accounts.find(a=>a.id===t.accountId))}))} onDelete={removeTrade} onEdit={editTrade} onReview={openTradeReview} onToggleReview={toggleReview} />}
       {tab === 'trade-detail' && (detailTrade
