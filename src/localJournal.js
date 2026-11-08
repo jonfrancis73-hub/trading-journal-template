@@ -1,5 +1,5 @@
 import { validateRisk, riskSettings } from './risk.js';
-import { RULES } from './discipline.js';
+import { RULES, globalDiscipline } from './discipline.js';
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { normalizeReviewStatus, normalizeTags } from './analytics.js';
 import { buildJournalDraft, normalizeOutcome, normalizeRR, parseMoney } from './journalRules.js';
@@ -102,7 +102,16 @@ export function normalizeStore(store = {}) {
     settings: { ...emptyLocalStore.settings, ...(store.settings || {}) },
     accounts: Array.isArray(store.accounts) && store.accounts.length ? store.accounts : clone(emptyLocalStore.accounts),
     playbooks: Array.isArray(store.playbooks) ? store.playbooks : [],
-    trades: Array.isArray(store.trades) ? store.trades : [],
+    trades: Array.isArray(store.trades) ? store.trades.map(trade => {
+      if (!Array.isArray(trade.screenshots)) return trade;
+      const used = new Set();
+      return { ...trade, screenshots: trade.screenshots.map((shot, index) => {
+        let shotId = shot.id || `legacy-shot:${trade.id}:${index}`;
+        while (used.has(shotId)) shotId = `${shotId}:${index}`;
+        used.add(shotId);
+        return shot.id === shotId ? shot : { ...shot, id: shotId };
+      }) };
+    }) : [],
     entries: Array.isArray(store.entries) ? store.entries : [],
     analyses: Array.isArray(store.analyses) ? store.analyses : [],
     discipline: normalizeDiscipline(store.discipline || [], store.accounts),
@@ -271,15 +280,19 @@ function normalizeDiscipline(records, accounts) {
   if (!Array.isArray(records) || records.length > 5000) throw new Error('Invalid discipline records.');
   const keys = new Set();
   return records.map(r => {
-    const key = `${r.accountId}:${r.date}`;
-    if (!r.id || keys.has(key) || !accounts.some(a=>a.id===r.accountId) || !/^\d{4}-\d{2}-\d{2}$/.test(r.date) || new Date(`${r.date}T12:00:00Z`).toISOString().slice(0,10)!==r.date || !r.answers || typeof r.answers !== 'object' || Object.entries(r.answers).some(([id,v])=>!(id==='accountConfirmed'||RULES.some(rule=>rule[0]===id))||!['','yes','no','na'].includes(v)) || typeof r.notes !== 'string') throw new Error('Invalid or duplicate discipline record.');
+    const key = JSON.stringify([r.accountId || null, r.date]);
+    if (!r.id || keys.has(key) || (r.accountId && !accounts.some(a=>a.id===r.accountId)) || !/^\d{4}-\d{2}-\d{2}$/.test(r.date) || new Date(`${r.date}T12:00:00Z`).toISOString().slice(0,10)!==r.date || !r.answers || typeof r.answers !== 'object' || Object.entries(r.answers).some(([id,v])=>!(id==='accountConfirmed'||RULES.some(rule=>rule[0]===id))||!['','yes','no','na'].includes(v)) || typeof r.notes !== 'string') throw new Error('Invalid or duplicate discipline record.');
     keys.add(key); return r;
   });
 }
 export async function saveLocalDiscipline(store, record) {
   const current=normalizeStore(store);
-  const previous=current.discipline.find(r=>r.accountId===record.accountId&&r.date===record.date);
-  const next={...record,id:previous?.id||`discipline:${record.accountId}:${record.date}`};
+  const conflicts=globalDiscipline(current.discipline).find(r=>r.date===record.date)?.conflicts || [];
+  if (!record.accountId && conflicts.some(id=>!['yes','no','na'].includes(record.answers?.[id]))) throw new Error('Resolve each conflicting answer before saving the global checklist. Original records are preserved.');
+  const previous=current.discipline.find(r=>(r.accountId||null)===(record.accountId||null)&&r.date===record.date);
+  let recordId=previous?.id || `discipline:${record.accountId||'global'}:${record.date}`;
+  if (!previous && current.discipline.some(r=>r.id===recordId)) recordId=id('discipline');
+  const next={...record,id:recordId};
   return writeLocalStore({...current,discipline:[...current.discipline.filter(r=>r.id!==next.id),next]}, {reason:'discipline_saved'});
 }
 export async function saveLocalAccounts(store, accounts = []) {
@@ -475,8 +488,9 @@ export function mergeBackupStores(currentStore, importedStore) {
   const isFresh = ['trades', 'entries', 'analyses', 'playbooks', 'discipline'].every(key => !current[key].length)
     && current.accounts.length === 1 && current.accounts[0].id === 'personal'
     && current.accounts[0].name === 'Personal' && !Number(current.accounts[0].startingBalance) && !current.accounts[0].archived;
-  const canonical = value => JSON.stringify(value, (key, item) => {
+  const canonical = value => JSON.stringify({ ...value, screenshots: value.screenshots || [] }, (key, item) => {
     if (key === 'backupPath') return undefined;
+    if (item && !Array.isArray(item) && typeof item === 'object' && item.dataUrl && !item.type) item = { ...item, type: dataUrlParts(item.dataUrl)?.mime || 'image/png' };
     return item && !Array.isArray(item) && typeof item === 'object' ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item;
   });
   const mergeById = (left, right) => {

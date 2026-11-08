@@ -47,8 +47,8 @@ try {
   await expect(metric('Trade Expectancy')).toHaveText('-$500');
   assert.equal(await page.evaluate(async id=>{const j=await import('/src/localJournal.js');const s=await j.loadLocalStore();return s.accounts.find(a=>a.id===id).startingBalance+s.trades.filter(t=>t.accountId===id).reduce((n,t)=>n+Number(t.pnl),0);},ids.a),49500);
   await page.getByLabel('View account').selectOption(ids.b);
-  await expect(metric(/^Net P&L$/)).toHaveText('+$300');
-  await expect(metric('Trade Expectancy')).toHaveText('+$300');
+  await expect(metric(/^Net P&L$/)).toHaveText('$300');
+  await expect(metric('Trade Expectancy')).toHaveText('$300');
   await page.getByLabel('View account').selectOption('');
   await expect(metric(/^Net P&L$/)).toHaveText('-$200');
   await page.getByRole('button', { name: 'Trade Log', exact: true }).click();
@@ -58,7 +58,7 @@ try {
   await page.getByTitle('Review trade').click();
   await page.getByLabel('View account').selectOption(ids.b);
   await expect(page).toHaveURL(`${base}/app`);
-  await expect(metric(/^Net P&L$/)).toHaveText('+$300');
+  await expect(metric(/^Net P&L$/)).toHaveText('$300');
   await page.getByRole('button', { name: 'Trade Log', exact: true }).click();
   await page.getByLabel('View account').selectOption(ids.a);
   // Reassign an existing trade through the real editor; its note and screenshot survive.
@@ -115,7 +115,7 @@ try {
   assert(migrated.backups.some(b => b.reason === 'before_account_migration'));
   await page.goto(`${base}/app/playbooks`);
   await page.getByRole('button', { name: 'Add Playbook', exact: true }).click();
-  await page.getByLabel('Name', { exact: true }).fill('Synthetic plan');
+  await page.getByLabel('Playbook name', { exact: true }).fill('Synthetic plan');
   await page.getByRole('button', { name: 'Save Playbooks', exact: true }).click();
   await expect(page.getByText('Playbooks saved.', { exact: true })).toBeVisible();
   assert.deepEqual(pageErrors, []);

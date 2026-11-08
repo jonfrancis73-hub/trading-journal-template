@@ -13,7 +13,7 @@ try {
  await expect(page.getByLabel('View account')).toBeVisible();
  await expect(page.getByText('Not enough data',{exact:true})).toBeVisible();
  await expect(page.locator('.trading-calendar')).toBeVisible();
- assert.deepEqual(await page.locator('.app-nav button').allTextContents(),[' Discipline',' Dashboard',' Trade Log',' Add Trade',' Analytics',' Risk Management',' Accounts',' Playbooks',' Daily Journal',' Settings']);
+ assert.deepEqual(await page.locator('.app-nav button').allTextContents(),[' Discipline',' Dashboard',' Trade Log',' Add Trade',' Analytics',' Risk Management',' Accounts',' Playbooks',' Reports',' Settings']);
  await page.evaluate(async()=>{const j=await import('/src/localJournal.js');const s=await j.loadLocalStore();await j.saveLocalAccounts(s,[...s.accounts,{id:'a',name:'Synthetic A',startingBalance:50000},{id:'b',name:'Synthetic B',startingBalance:50000}]);});
  await page.reload();await page.getByRole('button',{name:'Add Trade',exact:true}).first().click();
  await page.getByLabel('Trade account',{exact:true}).selectOption('a');
@@ -22,7 +22,7 @@ try {
  await expect(page.getByLabel('Net P&L Synthetic B',{exact:true})).toHaveValue('');
  await page.getByRole('button',{name:/Screenshots/}).click();
  await page.locator('input[type=file]').first().setInputFiles({name:'synthetic.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=','base64')});
- await page.getByRole('button',{name:/Notes/}).click();await page.getByLabel('Messy Note').fill('Synthetic multi-account note and reflection.');
+ await page.getByRole('button',{name:/Notes/}).click();await page.getByLabel('Raw Trade Notes').fill('Synthetic multi-account note and reflection.');
  await page.getByRole('button',{name:/Review Check and save/}).click();await page.getByRole('button',{name:'Save Trade',exact:true}).click();
  await expect(page.getByText('Confirm net realised P&L for every account.',{exact:true})).toBeVisible();
  assert.equal(await page.evaluate(async()=>{const j=await import('/src/localJournal.js');return (await j.loadLocalStore()).trades.length;}),0);
