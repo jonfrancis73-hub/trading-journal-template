@@ -17,6 +17,7 @@
     "stress:browser": "node scripts/e2e-heavy-stress.mjs",
     "security:sweep": "node scripts/security-sweep.mjs",
     "test:risk-discipline": "node scripts/e2e-risk-discipline.mjs",
+    "test:v2": "node scripts/e2e-version2.mjs",
     "test:experience": "node scripts/e2e-experience.mjs"
   },
   "dependencies": {

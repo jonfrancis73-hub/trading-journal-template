@@ -4368,3 +4368,76 @@ button:focus-visible,summary:focus-visible { outline:2px solid var(--accent-stro
 @media(min-width:851px) { .journal-layout .topbar-actions { flex-shrink:0; justify-content:flex-end; flex-wrap:nowrap; }.journal-layout .topbar-actions select { width:205px; } }
 .extended-metrics { margin-top:20px; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); }
 .empra-dashboard details > summary { cursor:pointer; color:var(--muted); font-size:12px; }
+/* Version 2: readable controls, financial charts and review workspace. */
+.blue { color:#72a7ff !important; }
+.financial-chart svg { width:100%; min-height:230px; overflow:visible; }
+.financial-chart text { fill:#bcb7c7; font-size:11px; }
+.financial-chart .green { fill:#55c7a1; }
+.financial-chart .red { fill:#ee7384; }
+.financial-chart .blue { fill:#72a7ff; }
+.outcome-card { position:relative; padding-right:80px; }
+.outcome-card svg { position:absolute; width:65px; right:12px; top:20px; }
+.outcome-card circle.green { stroke:#55c7a1; }
+.outcome-card circle.red { stroke:#ee7384; }
+.outcome-card circle.blue { stroke:#72a7ff; }
+.outcome-card small { display:block; font-size:11px; line-height:1.5; }
+.trade-card .icon-actions { position:static; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; padding:0 18px 18px; width:100%; }
+.trade-card .icon-actions button { width:auto; min-height:44px; height:auto; padding:10px; display:flex; gap:8px; justify-content:center; border:1px solid #5c4b77; border-radius:9px; background:#282033; color:#eee8f8; font-size:12px; }
+.trade-card-foot { flex-wrap:wrap; gap:12px; }
+.capture-grid { grid-template-columns: minmax(0,1fr); }
+.calendar-weekdays,.calendar-month-grid { grid-template-columns:repeat(7,minmax(0,1fr)) minmax(85px,1fr) !important; }
+.week-total { border:1px solid #41344f; border-radius:8px; display:flex; flex-direction:column; gap:8px; justify-content:center; padding:8px; background:#211b2b; }
+.trading-calendar { overflow-x:auto; }
+.calendar-weekdays,.calendar-month-grid { min-width:640px; }
+.screenshot-explanation p,.zella-raw-card p,.flow-node p,.flow-editor details p { white-space:pre-wrap; overflow-wrap:anywhere; }
+.zella-chart-stage img { object-fit:contain !important; }
+.zella-review-sidebar { align-self:start; position:sticky; top:20px; }
+summary { cursor:pointer; padding:12px; color:#ddd0f5; font-weight:600; }
+.flow-nodes { display:flex; flex-direction:column; gap:36px; max-width:760px; margin:30px auto; }
+.flow-node { position:relative; border:2px solid #776091; border-radius:12px; padding:20px; background:#211b2c; }
+.flow-node.decision { border-color:#b08ce8; border-radius:32px; border-width:3px; }
+.flow-node.start,.flow-node.end { border-radius:60px; background:#332345; }
+.flow-arrow { position:absolute; bottom:-38px; left:50%; font-size:28px; color:#b08ce8; }
+.flow-connections { display:flex; flex-direction:column; gap:10px; margin-top:16px; }
+.flow-editor label { display:flex; flex-direction:column; gap:8px; margin-bottom:12px; }
+.report-filters { display:flex; flex-wrap:wrap; gap:14px; }
+.report-filters label { flex:1; min-width:130px; }
+.report-categories { display:flex; gap:8px; flex-wrap:wrap; margin-top:20px; }
+.report-stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:0 30px; }
+.report-stats>div { display:flex; justify-content:space-between; gap:12px; border-bottom:1px solid #34303d; padding:12px 0; }
+.report-bar-row { display:grid; grid-template-columns:150px 1fr 1fr; gap:15px; margin:20px 0; }
+.report-bar-row div>span { display:block; height:15px; background:#9475ca; min-width:2px; }
+.report-bar-row div>span.green { background:#55c7a1; }
+.report-bar-row div>span.red { background:#ee7384; }
+.table-scroll { overflow:auto; }
+.table-scroll table { width:100%; border-collapse:collapse; }
+.table-scroll td,.table-scroll th { text-align:left; padding:12px; border-bottom:1px solid #37313f; white-space:nowrap; }
+@media(max-width:800px) { .zella-review-layout { display:flex !important; flex-direction:column; } .zella-review-sidebar { position:static; order:-1; width:100%; } .report-bar-row { grid-template-columns:100px 1fr 1fr; } }
+.zella-review-layout { display:block; }
+.chart-and-explanation { display:grid; grid-template-columns:minmax(0,2fr) minmax(240px,1fr); gap:18px; align-items:start; }
+.chart-and-explanation .zella-chart-stage { min-width:0; }
+.chart-and-explanation .screenshot-explanation { margin:16px; max-height:65vh; overflow:auto; }
+.zella-review-sidebar { position:static; margin-top:20px; }
+.calendar-month-grid .blue { background:#172c48; }
+@media(max-width:800px) { .chart-and-explanation { display:block; } .zella-review-sidebar { order:initial; } }
+/* Status colours must survive card-specific typography rules. */
+.green { color:#55c7a1 !important; }
+.red { color:#ee7384 !important; }
+.outcome-card { display:grid; grid-template-columns:minmax(0,1fr) 64px; gap:6px; padding:22px; }
+.outcome-card>span,.outcome-card>strong { grid-column:1; }
+.outcome-card svg { position:static; grid-column:2; grid-row:1/3; width:64px; }
+.outcome-card small { grid-column:1/-1; }
+.report-chart-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; }
+.report-chart-scroll { max-height:520px; overflow:auto; }
+.report-chart-scroll svg { width:100%; min-width:480px; }
+.report-chart-scroll text { fill:#c8c1d1; font-size:12px; }
+.report-chart-scroll rect.distribution { fill:#a58ad8; }
+.report-chart-scroll rect.green { fill:#55c7a1; }
+.report-chart-scroll rect.red { fill:#ee7384; }
+.report-chart-scroll rect.blue { fill:#72a7ff; }
+@media(max-width:850px) { .report-chart-grid { grid-template-columns:1fr; } .performance-cards .outcome-card { grid-column:1/-1; } }
+.flow-nodes.reviewing { position:relative; padding:0 48px; max-width:850px; }
+.flow-lines { position:absolute; inset:0; width:100%; height:100%; overflow:visible; pointer-events:none; }
+.flow-nodes.reviewing .flow-node { z-index:1; }
+.flow-nodes.reviewing .flow-arrow { display:none; }
+@media(max-width:850px) { .flow-nodes.reviewing { padding:0; } .flow-lines { display:none; } .flow-nodes.reviewing .flow-arrow { display:block; } }

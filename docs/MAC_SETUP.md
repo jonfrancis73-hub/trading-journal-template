@@ -72,3 +72,7 @@ npm run test:accounts
 ## Download ZIP installation for the complete application
 
 For the current complete update, follow [Safe Mac update using Download ZIP](EXPERIENCE_UPDATE.md#safe-mac-update-using-download-zip). It updates your existing installation in place so your current Brave launcher continues to use the same folder and address. The guide also covers the dashboard, multi-account capture, discipline controls, fixed UK session and per-account loss limits.
+
+## Version 2 installation
+
+For the current update, use [Version 2: Update your existing Mac using Download ZIP](VERSION_2_UPDATE.md#update-your-existing-mac-using-download-zip). It copies source files into the folder already used by your existing Brave launcher. Discipline is now global per date and Daily Journal is available through the Reports archive.

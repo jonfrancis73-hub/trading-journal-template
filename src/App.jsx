@@ -1,9 +1,14 @@
+import {calendarCells,calendarWeek} from './calendar.js';
+import { FinancialChart, OutcomeDonut } from './FinancialCharts.jsx';
+import Reports from './Reports.jsx';
+import FlowPlaybooks from './FlowPlaybooks.jsx';
+import { money, pnlTone } from './format.js';
 import { empraScore } from './empra.js';
 import DisciplinePanel from './DisciplinePanel.jsx';
 import { saveLocalDiscipline } from './localJournal.js';
 import RiskPanel from './RiskPanel.jsx';
 import { localDay, tradeSession } from './risk.js';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { BrowserRouter, useLocation, useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
@@ -113,8 +118,8 @@ const emptyTrade = () => ({
   pnl: '',
   rr: '1.5',
   rating: 'A',
-  strategy: 'NY AM Model',
-  session: 'NY AM',
+  strategy: 'London Draw',
+  session: 'London',
   entryTime: '',
   exitTime: '',
   playbookId: '',
@@ -145,7 +150,7 @@ const tabs = [
   { id: 'risk', label: 'Risk Management', Icon: Shield },
   { id: 'accounts', label: 'Accounts', Icon: WalletCards },
   { id: 'playbooks', label: 'Playbooks', Icon: ListChecks },
-  { id: 'daily', label: 'Daily Journal', Icon: CalendarDays },
+  { id: 'daily', label: 'Reports', Icon: CalendarDays },
   { id: 'settings', label: 'Settings', Icon: Settings },
 ];
 const visibleTabIds = new Set(tabs.map(t=>t.id));
@@ -251,11 +256,6 @@ function scrollToPublicSection(target) {
     const top = element.getBoundingClientRect().top + window.scrollY - 88;
     window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
   }, 80);
-}
-
-function money(value) {
-  const number = Number(value || 0);
-  return `${number >= 0 ? '+' : '-'}$${Math.abs(number).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 }
 
 function pct(value) {
@@ -402,6 +402,7 @@ async function compressImageFile(file, maxWidth = 2200, quality = 0.82) {
 }
 
 function StatCard({ label, value, tone = 'neutral', sub, Icon }) {
+  if (typeof value==='string' && /^-?\$/.test(value) && !/balance/i.test(label)) tone=value.startsWith('-')?'red':Number(value.replace(/[^0-9.]/g,''))===0?'blue':'green';
   return (
     <div className={`metric-card ${tone}`}>
       <span className="metric-icon">{Icon && <Icon size={18} />}</span>
@@ -534,7 +535,7 @@ function MiniChart({ trades }) {
               </button>
             ))}
           </div>
-          <strong className={`pnl-amount ${displayValue >= 0 ? 'green' : 'red'}`}>{money(displayValue)}</strong>
+          <strong className={`pnl-amount ${pnlTone(displayValue)}`}>{money(displayValue)}</strong>
         </div>
       </div>
       <svg
@@ -569,7 +570,7 @@ function MiniChart({ trades }) {
               <g className="equity-tooltip">
                 <rect x={hoverTooltip.x} y={hoverTooltip.y} width={hoverTooltip.width} height={hoverTooltip.height} rx="12" />
                 <text
-                  className={`equity-tooltip-value ${hoverPoint.pnl >= 0 ? 'green' : 'red'}`}
+                  className={`equity-tooltip-value ${pnlTone(hoverPoint.pnl)}`}
                   x={hoverTooltip.x + 12}
                   y={hoverTooltip.y + 22}
                 >
@@ -590,17 +591,17 @@ function MiniChart({ trades }) {
       <div className="chart-summary-grid">
         <div>
           <span>Total P&L</span>
-          <strong className={(latestPoint?.value || 0) >= 0 ? 'green' : 'red'}>{money(latestPoint?.value || 0)}</strong>
+          <strong className={pnlTone(latestPoint?.value || 0)}>{money(latestPoint?.value || 0)}</strong>
           <small>{points.length} {periodNoun}{points.length === 1 ? '' : 's'} shown</small>
         </div>
         <div>
           <span>Latest {periodNoun}</span>
-          <strong className={(latestPoint?.pnl || 0) >= 0 ? 'green' : 'red'}>{latestPoint ? money(latestPoint.pnl) : '$0'}</strong>
+          <strong className={pnlTone(latestPoint?.pnl || 0)}>{latestPoint ? money(latestPoint.pnl) : '$0'}</strong>
           {latestPoint && <small>{latestPoint.label}</small>}
         </div>
         <div>
           <span>Best {periodNoun}</span>
-          <strong className="green">{bestPoint ? money(bestPoint.pnl) : '$0'}</strong>
+          <strong className={pnlTone(bestPoint?.pnl || 0)}>{bestPoint ? money(bestPoint.pnl) : '$0'}</strong>
           {bestPoint && <small>{bestPoint.label}</small>}
         </div>
         <div>
@@ -686,27 +687,27 @@ function Dashboard({ trades, accounts, settings, setTab, onSaveSettings, onRevie
   return <div className="screen-grid empra-dashboard">
     <section className="dashboard-welcome"><div><span className="eyebrow">YOUR PERFORMANCE, IN PERSPECTIVE</span><h1>Every trade tells a story.</h1><p>Review your edge. Build your consistency.</p></div><span className="local-badge"><span/> Local journal · {stats.totalTrades} executions</span></section>
     <section className="metrics-grid performance-cards">
-      <StatCard Icon={WalletCards} label="Net P&L" value={money(stats.netPnl)} tone={stats.netPnl>=0?'green':'red'} />
+      <StatCard Icon={WalletCards} label="Net P&L" value={money(stats.netPnl)} tone={pnlTone(stats.netPnl)} />
       <StatCard Icon={LineChart} label="Trade Expectancy" value={stats.totalTrades?money(stats.expectancy):'—'} />
       <StatCard Icon={BarChart3} label="Profit Factor" value={stats.totalTrades?(Number.isFinite(stats.profitFactor)?stats.profitFactor.toFixed(2):'∞'):'—'} />
-      <StatCard Icon={Target} label="Win Rate" value={stats.decidedTrades?pct(stats.winRate):'—'} sub={`${stats.wins} wins · ${stats.losses} losses`} />
+      <OutcomeDonut trades={realised}/>
       <StatCard Icon={RefreshCcw} label="Average Win / Loss Ratio" value={stats.losses?stats.payoffRatio.toFixed(2):'—'} />
     </section>
     <div className="empra-charts">
       <section className="panel score-panel"><div className="panel-head"><h2>Empra Score</h2><Target size={18}/></div><div className="score-value">{score===null?'—':score}<small>/ 100</small></div><p>{score===null?'Not enough data':'A balanced view of your trading edge'}</p><svg viewBox="0 0 240 185" role="img" aria-label="Empra score component radar"><polygon points="120,15 220,165 20,165" fill="none" stroke="#393047"/><polygon points="120,50 185,148 55,148" fill="none" stroke="#393047"/><polygon points={components.map((v,i)=>{const p=[[120,15],[220,165],[20,165]][i];return `${120+(p[0]-120)*v/100},${115+(p[1]-115)*v/100}`;}).join(' ')} fill="#a78bfa44" stroke="#b59af8" strokeWidth="2"/></svg><div className="score-components">{['Win rate','Profit factor','Win/loss ratio'].map((label,i)=><span key={label}>{label}<strong>{stats.totalTrades?components[i].toFixed(0)+'%':'—'}</strong></span>)}</div><details><summary>How is this calculated?</summary><p>Minimum 20 realised executions, including 3 wins and 3 losses. Equal average of win rate, profit factor ÷ 2 and average win/loss ratio ÷ 2; each component capped at 100%. An original journal score.</p></details></section>
-      <section className="panel cumulative-panel"><h2>Daily Cumulative Net P&L</h2><MiniChart trades={realised}/>{!days.length&&<p className="muted">No realised trades yet.</p>}</section>
-      <section className="panel daily-pnl-panel"><h2>Net Daily P&L</h2>{days.length?<div className="daily-bars">{days.map(d=><button key={d.date} aria-label={`${d.date}: ${money(d.netPnl)}`} title={`${d.date}: ${money(d.netPnl)}`} onClick={()=>setTab('reports')}><span className={d.netPnl>=0?'positive-bar':'negative-bar'} style={{height:`${Math.max(2,Math.abs(d.netPnl)/max*46)}%`,[d.netPnl>=0?'bottom':'top']:'50%'}}/><small>{d.date.slice(5)}</small></button>)}</div>:<div className="chart-empty">No realised trades yet.<br/>Your daily results will appear here.</div>}<div className="rule-legend"><span><i className="yes"/>Profit</span><span><i className="no"/>Loss</span></div></section>
+      <section className="panel cumulative-panel"><h2>Daily Cumulative Net P&L</h2><FinancialChart trades={realised} cumulative/>{!days.length&&<p className="muted">No realised trades yet.</p>}</section>
+      <section className="panel daily-pnl-panel"><h2>Net Daily P&L</h2><FinancialChart trades={realised}/></section>
     </div>
-    <div className="dashboard-bottom"><section className="panel"><div className="panel-head"><h2>Recent Trades</h2><button className="link-button" onClick={()=>setTab('log')}>View all →</button></div>{latest.length?latest.map(t=><button className="recent-execution" key={t.id} onClick={()=>onReview(t)}><span><strong>{t.asset}</strong><small>{t.date} · {t.account}</small></span><strong className={parseMoney(t.pnl)>=0?'green':'red'}>{money(parseMoney(t.pnl))}</strong></button>):<p className="chart-empty">Your first trade starts the story.<br/><button className="secondary" onClick={()=>setTab('capture')}>Add a trade</button></p>}</section><JournalCalendar trades={realised} onReview={onReview}/></div>
+    <div className="dashboard-bottom"><section className="panel"><div className="panel-head"><h2>Recent Trades</h2><button className="link-button" onClick={()=>setTab('log')}>View all →</button></div>{latest.length?latest.map(t=><button className="recent-execution" key={t.id} onClick={()=>onReview(t)}><span><strong>{t.asset}</strong><small>{t.date} · {t.account}</small></span><strong className={pnlTone(parseMoney(t.pnl))}>{money(parseMoney(t.pnl))}</strong></button>):<p className="chart-empty">Your first trade starts the story.<br/><button className="secondary" onClick={()=>setTab('capture')}>Add a trade</button></p>}</section><JournalCalendar trades={realised} onReview={onReview}/></div>
     <details className="panel"><summary>More performance metrics</summary><section className="metrics-grid extended-metrics">
       <StatCard Icon={WalletCards} label="Account Balance" value={money(accounts.reduce((sum,a)=>sum+Number(a.startingBalance||0),0)+stats.netPnl)}/>
       <StatCard Icon={Database} label="Today’s Realised P&L" value={money(calculateAdvancedStats(realised.filter(t=>t.date===localDay())).netPnl)}/>
       <StatCard Icon={BarChart3} label="Average Win" value={money(stats.averageWin)}/>
       <StatCard Icon={BarChart3} label="Average Loss" value={money(stats.averageLoss)}/>
       <StatCard Icon={RefreshCcw} label="Avg RR" value={stats.avgRR.toFixed(2)}/>
-      <StatCard Icon={BarChart3} label="Max Drawdown" value={money(stats.maxDrawdown)} tone="red"/>
+      <StatCard Icon={BarChart3} label="Max Drawdown" value={money(-stats.maxDrawdown)} tone="red"/>
       <StatCard Icon={BookOpen} label="Total Trades" value={stats.totalTrades}/>
-    </section><section className="account-strip">{accountSummaries(realised,accounts).map(account=><button className="account-card" key={account.id} onClick={()=>setTab('accounts')}><span>{account.name}</span><strong>{money(account.currentBalance)}</strong><small>{account.trades} trades · {money(account.stats.netPnl)} net</small></button>)}</section></details>
+    </section><section className="account-strip">{accountSummaries(realised,accounts).map(account=><button className="account-card" key={account.id} onClick={()=>setTab('accounts')}><span>{account.name}</span><strong>{money(account.currentBalance)}</strong><small>{account.trades} trades · <span className={pnlTone(account.stats.netPnl)}>{money(account.stats.netPnl)} net</span></small></button>)}</section></details>
     <TradingRulesPanel rules={settings?.tradingRules||[]} onSave={tradingRules=>onSaveSettings({tradingRules})}/>
   </div>;
 }
@@ -716,112 +717,6 @@ function JournalCalendar({trades,onReview}) {
  const [selectedDay,setSelectedDay]=useState('');
  const days=calendarStats(trades.filter(t=>t.realised!==false));
  return <TradingCalendar days={days} monthOptions={[]} selectedMonth={selectedMonth} selectedDay={selectedDay} dayTrades={trades.filter(t=>t.date===selectedDay&&t.realised!==false)} onMonthChange={m=>{setSelectedMonth(m);setSelectedDay('');}} onDayClick={setSelectedDay} onClearDay={()=>setSelectedDay('')} onReview={onReview}/>;
-}
-
-function playbookRuleList(value) {
-  return Array.isArray(value) ? value.join('\n') : String(value || '');
-}
-
-function parseRuleList(value) {
-  return String(value || '')
-    .split(/[\n,]/u)
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-function PlaybooksPanel({ playbooks = [], trades = [], onSave }) {
-  const [draft, setDraft] = useState(playbooks.length ? playbooks : []);
-  const [message, setMessage] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    setDraft(playbooks.length ? playbooks : []);
-  }, [playbooks]);
-
-  function addPlaybook() {
-    setDraft((current) => current.concat({
-      id: globalThis.crypto?.randomUUID?.() || `playbook-${Date.now()}`,
-      name: 'New Playbook',
-      market: 'MNQ',
-      session: 'NY AM',
-      setupRules: [],
-      entryChecklist: [],
-      invalidationRules: [],
-      managementRules: [],
-      mistakeWarnings: [],
-      exampleNotes: '',
-    }));
-  }
-
-  function update(index, key, value) {
-    setDraft((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, [key]: value } : item));
-  }
-
-  function updateList(index, key, value) {
-    update(index, key, parseRuleList(value));
-  }
-
-  async function save() {
-    setSaving(true);
-    setMessage('');
-    try {
-      await onSave(draft);
-      setMessage('Playbooks saved.');
-    } catch (error) {
-      setMessage(error.message || 'Playbooks could not be saved.');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  const linkedCounts = new Map();
-  for (const trade of trades) {
-    if (trade.playbookId) linkedCounts.set(trade.playbookId, (linkedCounts.get(trade.playbookId) || 0) + 1);
-  }
-
-  return (
-    <div className="screen-grid">
-      {message && <Notice tone={/saved/i.test(message) ? 'success' : 'error'}>{message}</Notice>}
-      <section className="panel">
-        <div className="panel-head">
-          <div><span className="eyebrow">Playbooks</span><h2>Trading Plans</h2></div>
-          <div className="head-actions">
-            <button className="secondary" type="button" onClick={addPlaybook}><Plus size={16} /> Add Playbook</button>
-            <button className="primary" type="button" disabled={saving} onClick={save}>{saving ? <Loader2 className="spin" size={16} /> : <Save size={16} />} Save Playbooks</button>
-          </div>
-        </div>
-        <div className="playbook-grid">
-          {draft.map((playbook, index) => (
-            <article className="playbook-card" key={playbook.id || index}>
-              <div className="panel-head compact-head">
-                <div>
-                  <span className="eyebrow">{linkedCounts.get(playbook.id) || 0} linked trades</span>
-                  <h3>{playbook.name || 'Untitled Playbook'}</h3>
-                </div>
-                <button className="secondary icon-only" type="button" onClick={() => setDraft((current) => current.filter((_, itemIndex) => itemIndex !== index))}><Trash2 size={15} /></button>
-              </div>
-              <div className="form-grid">
-                <Field label="Name"><input value={playbook.name || ''} onChange={(event) => update(index, 'name', event.target.value)} /></Field>
-                <Field label="Market"><input value={playbook.market || ''} onChange={(event) => update(index, 'market', event.target.value.toUpperCase())} /></Field>
-                <Field label="Session"><select value={playbook.session || ''} onChange={(event) => update(index, 'session', event.target.value)}><option value="">Any</option>{SESSION_OPTIONS.map((item) => <option key={item}>{item}</option>)}</select></Field>
-              </div>
-              <div className="split-panels compact">
-                <Field label="Setup Rules"><textarea className="small-textarea" value={playbookRuleList(playbook.setupRules)} onChange={(event) => updateList(index, 'setupRules', event.target.value)} /></Field>
-                <Field label="Entry Checklist"><textarea className="small-textarea" value={playbookRuleList(playbook.entryChecklist)} onChange={(event) => updateList(index, 'entryChecklist', event.target.value)} /></Field>
-              </div>
-              <div className="split-panels compact">
-                <Field label="Invalidation Rules"><textarea className="small-textarea" value={playbookRuleList(playbook.invalidationRules)} onChange={(event) => updateList(index, 'invalidationRules', event.target.value)} /></Field>
-                <Field label="Management Rules"><textarea className="small-textarea" value={playbookRuleList(playbook.managementRules)} onChange={(event) => updateList(index, 'managementRules', event.target.value)} /></Field>
-              </div>
-              <Field label="Mistake Warnings"><textarea className="small-textarea" value={playbookRuleList(playbook.mistakeWarnings)} onChange={(event) => updateList(index, 'mistakeWarnings', event.target.value)} /></Field>
-              <Field label="Example Notes"><textarea className="small-textarea" value={playbook.exampleNotes || ''} onChange={(event) => update(index, 'exampleNotes', event.target.value)} placeholder="What this setup should look like when executed well." /></Field>
-            </article>
-          ))}
-          {!draft.length && <p className="muted">No playbooks yet. Add one to define your rules before linking trades.</p>}
-        </div>
-      </section>
-    </div>
-  );
 }
 
 function Field({ label, children }) {
@@ -1038,7 +933,8 @@ function Capture({ onSaved, defaultAccountId, activeTrade, accounts = [], playbo
         exitTime: normalizeTimeInput(trade.exitTime),
         reviewStatus: trade.reviewStatus || (trade.reviewed ? 'reviewed' : 'needs_review'),
         reviewed: (trade.reviewStatus || (trade.reviewed ? 'reviewed' : 'needs_review')) === 'reviewed',
-        sections: draft.sections,
+        sections: activeTrade?.sections || draft.sections,
+        realised: activeTrade ? trade.realised : true,
         answers,
         screenshots,
       };
@@ -1089,23 +985,24 @@ function Capture({ onSaved, defaultAccountId, activeTrade, accounts = [], playbo
           ))}
         </nav>
         {phase === 'ticket' && <div className="form-grid trade-ticket-grid">
-          <p>Date is the realised-result day in this computer’s local timezone. Entry and exit times are actual UK execution times. Leave unknown times blank.</p><Field label="Date"><input type="date" value={trade.date} onChange={(event) => update('date', event.target.value)} /></Field>
+          <Field label="Date"><input type="date" value={trade.date} onChange={(event) => update('date', event.target.value)} /></Field>
           <Field label="Asset"><input value={trade.asset} onChange={(event) => update('asset', event.target.value.toUpperCase())} /></Field>
           <Field label="Account">
             <select aria-label="Trade account" value={trade.accountId || ''} onChange={event => update('accountId', event.target.value)}><option value="">Select an account</option>{accounts.filter(a => !a.archived || a.id === activeTrade?.accountId).map(a => <option key={a.id} value={a.id}>{a.name}{a.archived ? ' (archived)' : ''}</option>)}</select>
           </Field>
+          <Field label="Playbook"><select aria-label="Trade playbook" value={trade.playbookId || ''} onChange={event=>setTrade(current=>({...current,playbookId:event.target.value,playbookName:playbooks.find(p=>p.id===event.target.value)?.name||''}))}><option value="">No playbook</option>{trade.playbookId&&!playbooks.some(p=>p.id===trade.playbookId)&&<option value={trade.playbookId}>{trade.playbookName || 'Previously linked playbook'}</option>}{playbooks.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
           <Field label="Strategy"><input value={trade.strategy} onChange={(event) => update('strategy', event.target.value)} /></Field>
           <Field label="Session"><select value={trade.session || ''} onChange={(event) => update('session', event.target.value)}>{SESSION_OPTIONS.map((item) => <option key={item}>{item}</option>)}</select></Field>
-          <p>Entry Time is the actual execution time in UK local time, not when you write this journal. P&L must already include all commissions and fees.</p><Field label="Entry Time"><TimeInput value={trade.entryTime || ''} onChange={(value) => update('entryTime', value)} /></Field>
-          <label><input type="checkbox" checked={trade.realised !== false} onChange={e=>update('realised',e.target.checked)}/> Realised result (exclude open/unrealised positions from risk totals)</label><Field label="Exit Time"><TimeInput value={trade.exitTime || ''} onChange={(value) => update('exitTime', value)} /></Field>
+          <details><summary>Execution Time &amp; P&amp;L Guidance</summary><p>Entry Time is the actual execution time in UK local time, not when you write this journal. P&amp;L must already include all commissions and fees.</p></details><Field label="Entry Time"><TimeInput value={trade.entryTime || ''} onChange={(value) => update('entryTime', value)} /></Field>
+          {activeTrade?.realised===false && <label><input type="checkbox" checked={trade.realised!==false} onChange={e=>update('realised',e.target.checked)}/> Convert legacy entry to realised</label>}<Field label="Exit Time"><TimeInput value={trade.exitTime || ''} onChange={(value) => update('exitTime', value)} /></Field>
           <Field label="Direction"><select value={trade.direction} onChange={(event) => update('direction', event.target.value)}>{DIRECTIONS.map((item) => <option key={item}>{item}</option>)}</select></Field>
           <Field label="Outcome"><select value={trade.outcome} onChange={(event) => update('outcome', event.target.value)}>{OUTCOMES.map((item) => <option key={item}>{item}</option>)}</select></Field>
-          <Field label="P&L"><input value={trade.pnl} placeholder="+450 / -200" onChange={(event) => update('pnl', event.target.value)} /></Field>
+          <Field label="P&L"><input value={trade.pnl} placeholder="450 / -200" onChange={(event) => update('pnl', event.target.value)} /></Field>
           <Field label="RR"><input value={rrDisplay(trade.rr, '')} placeholder="1.5" onBlur={(event) => update('rr', normalizeRR(event.target.value))} onChange={(event) => update('rr', event.target.value)} /></Field>
           <Field label="Rating"><select value={trade.rating} onChange={(event) => update('rating', event.target.value)}>{RATINGS.map((item) => <option key={item}>{item}</option>)}</select></Field>
           <Field label="Emotion"><input value={trade.emotion || ''} onChange={(event) => update('emotion', event.target.value)} placeholder="Calm, rushed, patient..." /></Field>
         </div>}
-        {!activeTrade && (phase==='ticket'||phase==='review') && <fieldset className="execution-accounts"><legend>Account executions</legend><p>Primary account: {accounts.find(a=>a.id===trade.accountId)?.name||'Select above'} · net P&L {trade.pnl||'required'}. Add other accounts below. Enter each account’s actual net result; fees are already included.</p>{accounts.filter(a=>!a.archived&&a.id!==trade.accountId).map(a=><div className="execution-row" key={a.id}><label><input type="checkbox" checked={!!executions[a.id]?.selected} onChange={e=>setExecutions({...executions,[a.id]:{pnl:'',entryTime:trade.entryTime,exitTime:trade.exitTime,actualExit:trade.actualExit,...executions[a.id],selected:e.target.checked}})}/>{a.name}</label>{executions[a.id]?.selected&&<div className="form-grid">{[['pnl','Net P&L'],['entryTime','Entry time'],['exitTime','Exit time'],['actualExit','Actual exit']].map(([key,label])=><label key={key}>{label} · {a.name}<input aria-label={`${label} ${a.name}`} value={executions[a.id][key]||''} onChange={e=>setExecutions({...executions,[a.id]:{...executions[a.id],[key]:e.target.value}})}/></label>)}</div>}</div>)}</fieldset>}
+        {!activeTrade && (phase==='ticket'||phase==='review') && <fieldset className="execution-accounts"><legend>Account executions</legend><p>Primary account: {accounts.find(a=>a.id===trade.accountId)?.name||'Select above'} · net P&L {trade.pnl ? money(parseMoney(trade.pnl)) : 'required'}. Add other accounts below. Enter each account’s actual net result; fees are already included.</p>{accounts.filter(a=>!a.archived&&a.id!==trade.accountId).map(a=><div className="execution-row" key={a.id}><label><input type="checkbox" checked={!!executions[a.id]?.selected} onChange={e=>setExecutions({...executions,[a.id]:{pnl:'',entryTime:trade.entryTime,exitTime:trade.exitTime,actualExit:trade.actualExit,...executions[a.id],selected:e.target.checked}})}/>{a.name}</label>{executions[a.id]?.selected&&<div className="form-grid">{[['pnl','Net P&L'],['entryTime','Entry time'],['exitTime','Exit time'],['actualExit','Actual exit']].map(([key,label])=><label key={key}>{label} · {a.name}<input aria-label={`${label} ${a.name}`} value={executions[a.id][key]||''} onChange={e=>setExecutions({...executions,[a.id]:{...executions[a.id],[key]:e.target.value}})}/></label>)}</div>}</div>)}</fieldset>}
         {phase === 'ticket' && (
           <p className="phase-hint">Start with the trade ticket only. Screenshots, notes, and the final review come next.</p>
         )}
@@ -1147,7 +1044,7 @@ function Capture({ onSaved, defaultAccountId, activeTrade, accounts = [], playbo
             </button>
           ))}
         </div>
-        <Field label="Messy Note"><textarea className="messy-note-input" value={trade.note} onChange={(event) => update('note', event.target.value)} placeholder="Dump the trade truth here. Setup, execution, emotions, mistake, lesson." /></Field>
+        <Field label="Raw Trade Notes"><textarea className="messy-note-input" value={trade.note} onChange={(event) => update('note', event.target.value)} placeholder="Dump the trade truth here. Setup, execution, emotions, mistake, lesson." /></Field>
         </>}
         <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(event) => filesChanged(event.target.files)} />
         {phase === 'screenshots' && <section className="capture-detail-block screenshot-compose">
@@ -1205,7 +1102,7 @@ function Capture({ onSaved, defaultAccountId, activeTrade, accounts = [], playbo
                   fallbackLabel={screenshotFallbackLabel(shot)}
                 />
                 <div className="shot-controls">
-                  <select value={shot.kind || 'execution'} onClick={(event) => event.stopPropagation()} onChange={(event) => setScreenshots((current) => current.map((item) => item.id === shot.id ? { ...item, kind: event.target.value } : item))}>
+                  <select aria-label={`Screenshot classification ${shot.name || shot.id}`} onKeyDown={event=>event.stopPropagation()} value={shot.kind || 'execution'} onClick={(event) => event.stopPropagation()} onChange={(event) => setScreenshots((current) => current.map((item) => item.id === shot.id ? { ...item, kind: event.target.value } : item))}>
                     <option value="execution">Execution</option>
                     <option value="context">Context</option>
                     <option value="news">News</option>
@@ -1252,6 +1149,7 @@ function Capture({ onSaved, defaultAccountId, activeTrade, accounts = [], playbo
             ))}
           </div>
         </section>}
+        {phase === 'screenshots' && selectedScreenshot && <section className="panel"><h3>{selectedScreenshot.name} · Screenshot explanation</h3><label>Replace selected image<input type="file" accept="image/*" onChange={async e=>{const file=e.target.files?.[0];if(!file)return;if(file.size>MAX_UPLOAD_IMAGE_BYTES){setMessage('Image must be 20 MB or smaller.');return;}try{const image=await compressImageFile(file);setScreenshots(current=>current.map(shot=>shot.id===selectedScreenshot.id?{...shot,...image}:shot));}catch(error){setMessage(error.message);}}}/></label><textarea aria-label="Screenshot explanation" rows={8} value={selectedScreenshot.explanation || ''} onChange={e=>setScreenshots(current=>current.map(shot=>shot.id===selectedScreenshot.id?{...shot,explanation:e.target.value}:shot))}/><div className="head-actions">{[-1,1].map(delta=><button className="secondary" type="button" key={delta} disabled={screenshots.indexOf(selectedScreenshot)+delta<0 || screenshots.indexOf(selectedScreenshot)+delta>=screenshots.length} onClick={()=>setScreenshots(current=>{const next=[...current];const i=next.findIndex(x=>x.id===selectedScreenshot.id);[next[i],next[i+delta]]=[next[i+delta],next[i]];return next;})}>{delta<0?'Move earlier':'Move later'}</button>)}</div></section>}
         {phase === 'review' && (
           <section className="phase-review-card">
             <div>
@@ -1264,21 +1162,7 @@ function Capture({ onSaved, defaultAccountId, activeTrade, accounts = [], playbo
         )}
       </section>
 
-      <aside className="panel preview-panel">
-        <div className="panel-head"><h2>Smart Review</h2><Sparkles size={18} /></div>
-        <div className="followups">
-          {followups.map((question, index) => (
-            <Field key={question.id} label={`${index + 1}. ${question.label}`}>
-              <input value={answers[question.id] || ''} placeholder={question.placeholder} onChange={(event) => setAnswers((current) => ({ ...current, [question.id]: event.target.value }))} />
-            </Field>
-          ))}
-        </div>
-        <div className="draft-body">
-          {Object.entries(draft.sections).map(([title, body]) => (
-            <section className="preview-section" key={title}><h3>{title}</h3><p>{body}</p></section>
-          ))}
-        </div>
-      </aside>
+
     </div>
   );
 }
@@ -1307,14 +1191,14 @@ function TradeCard({ trade, onDelete, onEdit, onToggleReview, onReview, deleteBu
         <p>{trade.note || trade.title}</p>
       </div>
       <div className="trade-card-foot">
-        <strong className={parseMoney(trade.pnl) >= 0 ? 'green' : 'red'}>{money(parseMoney(trade.pnl))}</strong>
+        <strong className={pnlTone(parseMoney(trade.pnl))}>{money(parseMoney(trade.pnl))}</strong>
         <span>{outcome || 'Unsorted'} · {rrDisplay(trade.rr)} · {normalizeReviewStatus(trade).replace('_', ' ')}</span>
       </div>
       <div className="icon-actions">
-        {onReview && <button title="Review trade" disabled={reviewBusy || deleteBusy} onClick={() => onReview(trade)}><Eye size={15} /></button>}
-        {onToggleReview && <button title={trade.reviewed ? 'Mark not reviewed' : 'Mark reviewed'} disabled={reviewBusy || deleteBusy} onClick={() => onToggleReview(trade)}>{reviewBusy ? <Loader2 className="spin" size={15} /> : <ClipboardCheck size={15} />}</button>}
-        {onEdit && <button title="Edit trade" disabled={reviewBusy || deleteBusy} onClick={() => onEdit(trade)}><Edit3 size={15} /></button>}
-        {onDelete && <button title="Delete" disabled={reviewBusy || deleteBusy} onClick={() => onDelete(trade.id)}>{deleteBusy ? <Loader2 className="spin" size={15} /> : <Trash2 size={15} />}</button>}
+        {onReview && <button title="Review trade" disabled={reviewBusy || deleteBusy} onClick={() => onReview(trade)}><Eye size={15} /> Review Trade</button>}
+        {onToggleReview && <button title={trade.reviewed ? 'Mark not reviewed' : 'Mark reviewed'} disabled={reviewBusy || deleteBusy} onClick={() => onToggleReview(trade)}>{reviewBusy ? <Loader2 className="spin" size={15} /> : <ClipboardCheck size={15} />}{trade.reviewed ? 'Mark Not Reviewed' : 'Mark Reviewed'}</button>}
+        {onEdit && <button title="Edit trade" disabled={reviewBusy || deleteBusy} onClick={() => onEdit(trade)}><Edit3 size={15} /> Edit Trade</button>}
+        {onDelete && <button title="Delete" disabled={reviewBusy || deleteBusy} onClick={() => onDelete(trade.id)}>{deleteBusy ? <Loader2 className="spin" size={15} /> : <Trash2 size={15} />} Delete Trade</button>}
       </div>
     </article>
   );
@@ -1456,13 +1340,13 @@ function TradeDetailPage({ trade, playbooks = [], onBack, onEdit, onToggleReview
         ].map(([label, value]) => (
           <article key={label}>
             <span>{label}</span>
-            <strong className={label === 'P&L' ? (parseMoney(trade.pnl) >= 0 ? 'green' : 'red') : ''}>{value}</strong>
+            <strong className={label === 'P&L' ? (pnlTone(parseMoney(trade.pnl))) : ''}>{value}</strong>
           </article>
         ))}
       </section>
 
       <div className="zella-review-layout">
-        <main className="zella-main-column">
+        <div className="zella-main-column">
           <section className="zella-chart-card">
             <div className="zella-card-head">
               <div>
@@ -1471,7 +1355,7 @@ function TradeDetailPage({ trade, playbooks = [], onBack, onEdit, onToggleReview
               </div>
               <span>{shots.length ? `${shots.length} screenshots` : 'No screenshots'}</span>
             </div>
-            <div className="zella-chart-stage">
+<div className="chart-and-explanation">            <div className="zella-chart-stage">
               <ScreenshotImage
                 shot={selectedShot}
                 src={selectedSrc}
@@ -1480,10 +1364,11 @@ function TradeDetailPage({ trade, playbooks = [], onBack, onEdit, onToggleReview
                 iconSize={34}
               />
             </div>
-            {shots.length > 0 && (
+<section className="zella-meta-card screenshot-explanation"><h3>{selectedShot ? `Screenshot ${shots.indexOf(selectedShot)+1} explanation` : 'Screenshot explanation'}</h3><small>{selectedShot?.name || ''}</small><p>{selectedShot?.explanation || (selectedShot ? 'No explanation saved. Use Edit Trade to add one.' : 'Select a screenshot to read its explanation.')}</p></section></div>            {shots.length > 0 && (
               <div className="zella-shot-strip">
                 {shots.map((shot, index) => (
                   <button
+                    aria-pressed={selectedShot?.id === shot.id}
                     className={selectedShot?.id === shot.id ? 'active' : ''}
                     key={shot.id || `${shot.name}-${index}`}
                     type="button"
@@ -1503,7 +1388,12 @@ function TradeDetailPage({ trade, playbooks = [], onBack, onEdit, onToggleReview
             )}
           </section>
 
-          <section className="zella-coach-card">
+          <section className="zella-raw-card">
+            <span className="eyebrow">Original Note</span>
+            <h3>Raw Trade Notes</h3>
+            <p>{trade.note || sections['Raw Note'] || 'No raw note was saved for this trade.'}</p>
+          </section>
+          <details className="zella-coach-card"><summary>Rule-Based Summary — Coach Review</summary>
             <div className="zella-card-head">
               <div><span className="eyebrow">Rule-Based Summary</span><h3>Coach Review</h3></div>
               <Sparkles size={18} />
@@ -1516,9 +1406,9 @@ function TradeDetailPage({ trade, playbooks = [], onBack, onEdit, onToggleReview
                 </article>
               ))}
             </div>
-          </section>
+          </details>
 
-          <section className="zella-journal-card">
+          <details className="zella-journal-card"><summary>Journal — Trade Notes</summary>
             <div className="zella-card-head">
               <div><span className="eyebrow">Journal</span><h3>Trade Notes</h3></div>
             </div>
@@ -1541,18 +1431,14 @@ function TradeDetailPage({ trade, playbooks = [], onBack, onEdit, onToggleReview
                 </article>
               ))}
             </div>
-          </section>
+          </details>
 
-          <section className="zella-raw-card">
-            <span className="eyebrow">Original Note</span>
-            <h3>Raw Trade Notes</h3>
-            <p>{displayReviewText(trade.note || sections['Raw Note']) || 'No raw note was saved for this trade.'}</p>
-          </section>
-        </main>
+
+        </div>
 
         <aside className="zella-review-sidebar">
-          <section className="zella-meta-card">
-            <span className="eyebrow">Context</span>
+          <details className="zella-meta-card">
+            <summary>Trade Details</summary>
             <div>
               <strong>Playbook</strong>
               <p>{trade.playbookName || playbook?.name || 'No playbook linked'}</p>
@@ -1581,7 +1467,7 @@ function TradeDetailPage({ trade, playbooks = [], onBack, onEdit, onToggleReview
               <strong>Review Status</strong>
               <p>{normalizeReviewStatus(trade).replace('_', ' ')}</p>
             </div>
-          </section>
+          </details>
           {playbook && (
             <section className="zella-meta-card">
               <span className="eyebrow">Playbook Rules</span>
@@ -1705,19 +1591,19 @@ function TradingCalendar({ days, monthOptions, selectedMonth, selectedDay, dayTr
           <h2>{formatMonthLabel(activeMonth)}</h2>
           <p>{monthlyTrades} trade{monthlyTrades === 1 ? '' : 's'} this month</p>
         </div>
-        <strong className={monthlyPnl >= 0 ? 'green' : 'red'}>Monthly P/L: {money(monthlyPnl)}</strong>
+        <strong className={pnlTone(monthlyPnl)}>Monthly P/L: {money(monthlyPnl)}</strong>
         <div className="calendar-nav">
           <button className="secondary" type="button" disabled={!previousMonth} onClick={() => onMonthChange(previousMonth)}>Prev</button>
           <button className="secondary" type="button" disabled={!nextMonth} onClick={() => onMonthChange(nextMonth)}>Next</button>
         </div>
       </div>
-      <div className="calendar-weekdays">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => <span key={day}>{day}</span>)}</div>
+      <p className="muted">Weekly totals include the full Sunday–Saturday row, including adjacent months.</p><div className="calendar-weekdays">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Week'].map((day) => <span key={day}>{day}</span>)}</div>
       <div className="calendar-month-grid">
-        {cells.map((cell) => {
+        {cells.map((cell, index) => {
           const day = dayMap.get(cell.date);
           const hasTrades = Boolean(day?.trades);
-          const tone = !hasTrades ? 'empty' : day.netPnl >= 0 ? 'positive' : 'negative';
-          return (
+          const tone = !hasTrades ? 'empty' : day.netPnl > 0 ? 'positive' : day.netPnl < 0 ? 'negative' : 'blue';
+          return (<React.Fragment key={cell.date}>
             <button
               key={cell.date}
               type="button"
@@ -1727,10 +1613,10 @@ function TradingCalendar({ days, monthOptions, selectedMonth, selectedDay, dayTr
             >
               <span>{cell.day}</span>
               {hasTrades && <>
-                <strong>{money(day.netPnl)}</strong>
+                <strong className={pnlTone(day.netPnl)}>{money(day.netPnl)}</strong>
                 <small>{day.trades} trade{day.trades === 1 ? '' : 's'}</small>
               </>}
-            </button>
+            </button>{index%7===6 && (()=>{const {start,end,pnl,count}=calendarWeek(cells,index,days);return <div className={`week-total ${count?pnlTone(pnl):'muted'}`} title={`${start} – ${end}: full Sunday–Saturday week`}><small>Week {Math.floor(index/7)+1}</small><strong>{money(pnl)}</strong><small>{count} trades</small></div>;})()}</React.Fragment>
           );
         })}
       </div>
@@ -1748,7 +1634,7 @@ function TradingCalendar({ days, monthOptions, selectedMonth, selectedDay, dayTr
             {dayTrades.map((trade) => (
               <button key={trade.id} type="button" onClick={() => onReview?.(trade)}>
                 <span>{trade.asset || 'Trade'} {trade.direction || ''}</span>
-                <strong className={parseMoney(trade.pnl) >= 0 ? 'green' : 'red'}>{money(parseMoney(trade.pnl))}</strong>
+                <strong className={pnlTone(parseMoney(trade.pnl))}>{money(parseMoney(trade.pnl))}</strong>
                 <small>{trade.outcome || normalizeOutcome(trade)} · {rrDisplay(trade.rr, 'No RR')}</small>
               </button>
             ))}
@@ -1757,23 +1643,6 @@ function TradingCalendar({ days, monthOptions, selectedMonth, selectedDay, dayTr
       )}
     </section>
   );
-}
-
-function calendarCells(monthKey) {
-  const [year, month] = String(monthKey || today.slice(0, 7)).split('-').map(Number);
-  const first = new Date(Date.UTC(year, month - 1, 1));
-  const start = new Date(first);
-  start.setUTCDate(1 - first.getUTCDay());
-  return Array.from({ length: 42 }, (_, index) => {
-    const date = new Date(start);
-    date.setUTCDate(start.getUTCDate() + index);
-    const value = date.toISOString().slice(0, 10);
-    return {
-      date: value,
-      day: date.getUTCDate(),
-      inMonth: value.slice(0, 7) === monthKey,
-    };
-  });
 }
 
 function formatMonthLabel(monthKey) {
@@ -1893,7 +1762,7 @@ function DistributionPanel({ title, rows }) {
             <div key={row.label} className="distribution-row">
               <div className="distribution-top">
                 <span>{row.label}</span>
-                <strong className={row.stats.netPnl >= 0 ? 'green' : 'red'}>{money(row.stats.netPnl)}</strong>
+                <strong className={pnlTone(row.stats.netPnl)}>{money(row.stats.netPnl)}</strong>
               </div>
               <div className="distribution-track"><i className={tone} style={{ width }} /></div>
               <small>{row.trades} trades · {pct(row.stats.winRate)} win rate · {money(row.stats.expectancy)} expectancy</small>
@@ -1924,7 +1793,7 @@ function MatrixPanel({ title, matrix, wide = false }) {
                 <tr key={row.label}>
                   <th>{row.label}</th>
                   {row.columns.map((cell) => (
-                    <td key={`${row.label}-${cell.label}`} className={cell.stats.netPnl >= 0 ? 'positive' : 'negative'}>
+                    <td key={`${row.label}-${cell.label}`} className={cell.stats.netPnl > 0 ? 'positive' : cell.stats.netPnl < 0 ? 'negative' : 'blue'}>
                       <strong>{cell.trades ? money(cell.stats.netPnl) : '-'}</strong>
                       {cell.trades > 0 && <small>{cell.trades} trades · {pct(cell.stats.winRate)}</small>}
                     </td>
@@ -2108,7 +1977,7 @@ function Accounts({ trades, accounts, onSave, onAssign }) {
             label={account.name}
             value={money(account.currentBalance)}
             sub={`${account.trades} trades · ${pct(account.stats.winRate)} win rate · Today: ${money(calculateAdvancedStats(trades.filter(t => t.accountId === account.id && t.date === new Date().toLocaleDateString('en-CA'))).netPnl)}${account.archived ? ' · Archived' : ''}`}
-            tone={account.stats.netPnl >= 0 ? 'green' : 'red'}
+            tone={pnlTone(account.stats.netPnl)}
           />
         ))}
       </section>
@@ -2554,12 +2423,12 @@ function ProductionApp() {
       {tab === 'trade-detail' && (detailTrade
         ? <TradeDetailPage trade={detailTrade} playbooks={store.playbooks || []} onBack={() => setTab('log')} onEdit={editTrade} onToggleReview={async (trade) => { await toggleReview(trade); await load(); }} />
         : <section className="panel"><Notice tone="error">This trade could not be found.</Notice><button className="secondary" type="button" onClick={() => setTab('log')}>Back to Trade Log</button></section>)}
-      {tab === 'playbooks' && <PlaybooksPanel playbooks={store.playbooks || []} trades={tradeRecords} onSave={savePlaybooks} />}
+      {tab === 'playbooks' && <FlowPlaybooks playbooks={store.playbooks || []} trades={tradeRecords} onSave={savePlaybooks} />}
       {tab === 'reports' && <Insights key={selectedAccountId} trades={tradeRecords} onReview={openTradeReview} />}
-      {tab === 'discipline' && <DisciplinePanel key={selectedAccountId} store={store} accountId={selectedAccountId} onSave={async record=>{setStore(await saveLocalDiscipline(store,record));await refreshAutoBackups();}} onReview={openTradeReview} />}
+      {tab === 'discipline' && <DisciplinePanel store={store} accountId={selectedAccountId} onSave={async record=>{setStore(await saveLocalDiscipline(store,record));await refreshAutoBackups();}} onReview={openTradeReview} />}
       {tab === 'risk' && <RiskPanel key={selectedAccountId} store={store} accountId={selectedAccountId} onSave={saveAccounts} />}
       {tab === 'accounts' && <Accounts trades={allTradeRecords} accounts={store.accounts || []} onSave={saveAccounts} onAssign={async (ids, accountId) => { setStore(await assignLocalTrades(store, ids, accountId)); await refreshAutoBackups(); }} />}
-      {tab === 'daily' && <DailyEntryPanel entries={store.entries || []} onSave={(entry) => saveItem('entries', entry)} />}
+      {tab === 'daily' && <><Reports trades={tradeRecords} discipline={store.discipline || []}/><details className="panel"><summary>Historical Daily Journal archive</summary><DailyEntryPanel entries={store.entries || []} onSave={(entry) => saveItem('entries', entry)} /></details></>}
       {tab === 'settings' && <SettingsPanel store={store} storageStatus={storageStatus} autoBackups={autoBackups} onExport={exportBackup} onImport={importBackup} onClear={clearJournal} onImportNotion={importNotion} onExportAutoBackup={exportAutoBackup} onRestoreAutoBackup={restoreAutoBackup} />}
     </main>
   );

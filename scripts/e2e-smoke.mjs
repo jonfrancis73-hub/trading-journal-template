@@ -74,15 +74,14 @@ async function main() {
     await page.getByRole('button', { name: /Screenshots/u }).click();
     await page.locator('input[type="file"]').first().setInputFiles(screenshotPath);
     await page.getByRole('button', { name: /Notes/u }).click();
-    await page.getByLabel('Messy Note').fill('Clean execution. Waited for the setup, followed the plan, and managed the trade well.');
+    await page.getByLabel('Raw Trade Notes').fill('Clean execution. Waited for the setup, followed the plan, and managed the trade well.');
     await page.getByRole('button', { name: /Review Check and save/u }).click();
     await page.getByRole('button', { name: /Save Trade/u }).click();
     await page.waitForSelector('text=Trade saved.', { timeout: 15000 });
     await page.getByRole('button', { name: /Dashboard/u }).click();
-    const equityLine = await page.locator('svg[aria-label="Cumulative P&L chart"] path.equity-line').getAttribute('d');
-    if (!equityLine || !/\sL\s/u.test(equityLine)) {
-      throw new Error('Single-trade equity chart did not render a visible line segment.');
-    }
+    const point = page.locator('svg[aria-label="Cumulative realised P&L by date"] circle');
+    await point.first().waitFor();
+    if (await point.count() !== 1 || !(await point.locator('title').textContent()).includes('$450')) throw new Error('Single recorded result is missing from cumulative chart.');
 
     await page.getByRole('button', { name: /Trade Log/u }).click();
     await page.waitForSelector('text=MNQ Short', { timeout: 15000 });
